@@ -264,7 +264,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                 sessionId={session.id}
                 playerId={currentPlayer.id}
                 players={players}
-                quizData={defaultQuiz}
+                quizData={(session.rooms as any)?.quiz_data || defaultQuiz}
                 isHost={isHost}
                 onContinue={handlePuzzleComplete}
               />

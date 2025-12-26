@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import VideoUpload from '@/components/VideoUpload'
+import QuizEditor from '@/components/QuizEditor'
 
 type Room = Database['public']['Tables']['rooms']['Row']
 
@@ -411,18 +412,30 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
           </p>
         </div>
 
-        {/* Video Upload - only show when editing existing room */}
+        {/* Video Upload & Quiz Editor - only show when editing existing room */}
         {room && (
-          <div className="pt-4 border-t border-white/10">
-            <VideoUpload
-              roomId={room.id}
-              roomSlug={room.slug}
-              currentVideoUrl={(room as any).video_url}
-              onUploadComplete={() => {
-                // Refresh will happen on form close
-              }}
-            />
-          </div>
+          <>
+            <div className="pt-4 border-t border-white/10">
+              <VideoUpload
+                roomId={room.id}
+                roomSlug={room.slug}
+                currentVideoUrl={(room as any).video_url}
+                onUploadComplete={() => {
+                  // Refresh will happen on form close
+                }}
+              />
+            </div>
+
+            <div className="pt-4 border-t border-white/10">
+              <QuizEditor
+                roomId={room.id}
+                currentQuizData={(room as any).quiz_data}
+                onSave={() => {
+                  // Refresh will happen on form close
+                }}
+              />
+            </div>
+          </>
         )}
 
         <div className="flex gap-3 pt-4">

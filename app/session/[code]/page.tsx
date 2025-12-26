@@ -22,7 +22,8 @@ export default async function SessionPage({ params }: PageProps) {
         name,
         slug,
         description,
-        video_url
+        video_url,
+        quiz_data
       )
     `)
     .eq('session_code', code.toUpperCase())
