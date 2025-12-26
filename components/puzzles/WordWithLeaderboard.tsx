@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import WordPuzzle from './WordPuzzle'
 import Leaderboard from '../Leaderboard'
-import { defaultWordGame } from '@/lib/puzzles/word-data'
+import type { WordConfig } from '@/types/games'
 import type { Database } from '@/types/database'
 
 type Player = Database['public']['Tables']['players']['Row']
@@ -13,16 +13,24 @@ interface WordWithLeaderboardProps {
   sessionId: string
   playerId: string
   players: Player[]
+  wordData: WordConfig
   isHost: boolean
   onContinue: () => void
+  puzzleIndex?: number
+  totalGames?: number
+  roomId?: string
 }
 
 export default function WordWithLeaderboard({
   sessionId,
   playerId,
   players,
+  wordData,
   isHost,
   onContinue,
+  puzzleIndex = 0,
+  totalGames = 3,
+  roomId,
 }: WordWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -49,7 +57,7 @@ export default function WordWithLeaderboard({
 
       // Check if all players have answered all words
       const allFinished = players.every((player) => {
-        return (playerAnswerCounts[player.id] || 0) >= defaultWordGame.words.length
+        return (playerAnswerCounts[player.id] || 0) >= wordData.words.length
       })
 
       console.log('Check word game finished:', { playerAnswerCounts, allFinished })
@@ -86,7 +94,7 @@ export default function WordWithLeaderboard({
       if (pollInterval) clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
-  }, [sessionId, players, isFinished, allPlayersFinished])
+  }, [sessionId, players, wordData.words.length, isFinished, allPlayersFinished, puzzleIndex])
 
   const handleWordComplete = () => {
     setIsFinished(true)
@@ -97,11 +105,13 @@ export default function WordWithLeaderboard({
     return (
       <Leaderboard
         sessionId={sessionId}
-        puzzleIndex={2}
+        puzzleIndex={puzzleIndex}
         players={players}
         currentPlayerId={playerId}
         isHost={isHost}
         onContinue={onContinue}
+        totalGames={totalGames}
+        roomId={roomId}
       />
     )
   }
@@ -130,12 +140,25 @@ export default function WordWithLeaderboard({
   }
 
   // Show word puzzle if not finished yet
+  // Convert WordConfig to WordGameData format
+  const wordGameData = {
+    title: 'Wörter-Rätsel',
+    description: 'Findet die richtigen Wörter!',
+    words: wordData.words.map((word, index) => ({
+      id: `w${index + 1}`,
+      scrambled: word.scrambled,
+      answer: word.answer,
+      hint: word.hint,
+      points: word.points,
+    })),
+  }
+
   return (
     <WordPuzzle
       sessionId={sessionId}
       playerId={playerId}
       players={players}
-      wordData={defaultWordGame}
+      wordData={wordGameData}
       onComplete={handleWordComplete}
     />
   )

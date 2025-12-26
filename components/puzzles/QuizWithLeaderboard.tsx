@@ -16,6 +16,9 @@ interface QuizWithLeaderboardProps {
   quizData: QuizData
   isHost: boolean
   onContinue: () => void
+  totalGames?: number
+  puzzleIndex?: number
+  roomId?: string
 }
 
 export default function QuizWithLeaderboard({
@@ -25,6 +28,9 @@ export default function QuizWithLeaderboard({
   quizData,
   isHost,
   onContinue,
+  totalGames = 3,
+  puzzleIndex = 0,
+  roomId,
 }: QuizWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -38,7 +44,7 @@ export default function QuizWithLeaderboard({
         .from('player_actions')
         .select('player_id')
         .eq('session_id', sessionId)
-        .eq('puzzle_index', 0)
+        .eq('puzzle_index', puzzleIndex)
         .eq('action_type', 'quiz_answer')
 
       if (!actions) return
@@ -51,10 +57,19 @@ export default function QuizWithLeaderboard({
 
       // Check if all players have answered all questions
       const allFinished = players.every((player) => {
-        return (playerAnswerCounts[player.id] || 0) >= quizData.questions.length
+        const answerCount = playerAnswerCounts[player.id] || 0
+        const hasFinished = answerCount >= quizData.questions.length
+        console.log(`Player ${player.name} (${player.id}): ${answerCount}/${quizData.questions.length} answers - Finished: ${hasFinished}`)
+        return hasFinished
       })
 
-      console.log('Check all finished:', { playerAnswerCounts, allFinished })
+      console.log('Check all finished:', {
+        playerAnswerCounts,
+        allFinished,
+        players: players.map(p => ({ id: p.id, name: p.name })),
+        questionsLength: quizData.questions.length,
+        playersCount: players.length
+      })
       setAllPlayersFinished(allFinished)
     }
 
@@ -100,11 +115,13 @@ export default function QuizWithLeaderboard({
     return (
       <Leaderboard
         sessionId={sessionId}
-        puzzleIndex={0}
+        puzzleIndex={puzzleIndex}
         players={players}
         currentPlayerId={playerId}
         isHost={isHost}
         onContinue={onContinue}
+        totalGames={totalGames}
+        roomId={roomId}
       />
     )
   }
@@ -139,6 +156,7 @@ export default function QuizWithLeaderboard({
       playerId={playerId}
       quizData={quizData}
       onComplete={handleQuizComplete}
+      puzzleIndex={puzzleIndex}
     />
   )
 }

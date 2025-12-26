@@ -7,7 +7,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import VideoUpload from '@/components/VideoUpload'
-import QuizEditor from '@/components/QuizEditor'
+import GameEditor from '@/components/GameEditor'
+import GameQueue from '@/components/GameQueue'
+import Inbox from '@/components/Inbox'
+import type { Game } from '@/types/games'
 
 type Room = Database['public']['Tables']['rooms']['Row']
 
@@ -20,7 +23,17 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
   const [rooms, setRooms] = useState<Room[]>(initialRooms)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingRoom, setEditingRoom] = useState<Room | null>(null)
+  const [activeTab, setActiveTab] = useState<'rooms' | 'games' | 'inbox'>('rooms')
+  const [games, setGames] = useState<Game[]>([])
+  const [showGameEditor, setShowGameEditor] = useState(false)
+  const [editingGame, setEditingGame] = useState<Game | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    if (activeTab === 'games') {
+      refreshGames()
+    }
+  }, [activeTab])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -38,6 +51,33 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
 
     if (data) {
       setRooms(data)
+    }
+  }
+
+  const refreshGames = async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('games')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (data) {
+      setGames(data as Game[])
+    }
+  }
+
+  const handleDeleteGame = async (gameId: string) => {
+    if (!confirm('Möchtest du dieses Spiel wirklich löschen?')) {
+      return
+    }
+
+    const supabase = createClient()
+    const { error } = await supabase.from('games').delete().eq('id', gameId)
+
+    if (error) {
+      alert('Fehler beim Löschen: ' + error.message)
+    } else {
+      refreshGames()
     }
   }
 
@@ -106,24 +146,61 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-4">
+        {/* Tab Navigation */}
+        <div className="flex gap-4 border-b border-white/10">
           <button
-            onClick={() => {
-              setShowCreateForm(true)
-              setEditingRoom(null)
-            }}
-            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all"
+            onClick={() => setActiveTab('rooms')}
+            className={`px-6 py-3 font-semibold transition-all border-b-2 ${
+              activeTab === 'rooms'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
           >
-            + Neuen Raum erstellen
+            Räume verwalten
           </button>
           <button
-            onClick={refreshRooms}
-            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-all"
+            onClick={() => setActiveTab('games')}
+            className={`px-6 py-3 font-semibold transition-all border-b-2 ${
+              activeTab === 'games'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
           >
-            🔄 Aktualisieren
+            Spiele verwalten
+          </button>
+          <button
+            onClick={() => setActiveTab('inbox')}
+            className={`px-6 py-3 font-semibold transition-all border-b-2 ${
+              activeTab === 'inbox'
+                ? 'border-blue-500 text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            📬 Inbox
           </button>
         </div>
+
+        {/* Rooms Tab */}
+        {activeTab === 'rooms' && (
+          <>
+            {/* Actions */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowCreateForm(true)
+                  setEditingRoom(null)
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all"
+              >
+                + Neuen Raum erstellen
+              </button>
+              <button
+                onClick={refreshRooms}
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-all"
+              >
+                🔄 Aktualisieren
+              </button>
+            </div>
 
         {/* Create/Edit Form */}
         {(showCreateForm || editingRoom) && (
@@ -232,6 +309,118 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {/* Games Tab */}
+        {activeTab === 'games' && (
+          <>
+            {/* Actions */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowGameEditor(true)
+                  setEditingGame(null)
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all"
+              >
+                + Neues Spiel erstellen
+              </button>
+              <button
+                onClick={refreshGames}
+                className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-all"
+              >
+                🔄 Aktualisieren
+              </button>
+            </div>
+
+            {/* Game Editor */}
+            {(showGameEditor || editingGame) && (
+              <GameEditor
+                game={editingGame || undefined}
+                onSave={() => {
+                  setShowGameEditor(false)
+                  setEditingGame(null)
+                  refreshGames()
+                }}
+                onCancel={() => {
+                  setShowGameEditor(false)
+                  setEditingGame(null)
+                }}
+              />
+            )}
+
+            {/* Games List */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+              <h2 className="text-2xl font-semibold text-white mb-6">Spiele ({games.length})</h2>
+
+              {games.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-400">Noch keine Spiele erstellt.</p>
+                  <button
+                    onClick={() => setShowGameEditor(true)}
+                    className="mt-4 text-blue-400 hover:text-blue-300 transition-all"
+                  >
+                    Erstelle dein erstes Spiel →
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {games.map((game) => {
+                    const gameType = game.game_type
+                    const icon =
+                      gameType === 'quiz' ? '❓' : gameType === 'memory' ? '🎴' : '🔤'
+                    const typeName =
+                      gameType === 'quiz' ? 'Quiz' : gameType === 'memory' ? 'Memory' : 'Wörter-Rätsel'
+
+                    return (
+                      <div
+                        key={game.id}
+                        className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-all"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="text-4xl">{icon}</div>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-semibold text-white mb-1">{game.name}</h3>
+                            <p className="text-sm text-gray-400 mb-2">{typeName}</p>
+                            {game.description && (
+                              <p className="text-gray-300 text-sm mb-3">{game.description}</p>
+                            )}
+                            <p className="text-xs text-gray-500">
+                              Erstellt: {new Date(game.created_at).toLocaleDateString('de-DE')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => setEditingGame(game)}
+                            className="flex-1 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all text-sm"
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            onClick={() => handleDeleteGame(game.id)}
+                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 rounded-lg transition-all text-sm"
+                          >
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Inbox Tab */}
+        {activeTab === 'inbox' && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+            <Inbox />
+          </div>
+        )}
       </div>
     </main>
   )
@@ -291,6 +480,14 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
 
     const supabase = createClient()
 
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      alert('Nicht angemeldet')
+      setIsLoading(false)
+      return
+    }
+
     // Parse date correctly - add time to ensure it's treated as end of day
     let expiresAtISO = null
     if (expiresAt) {
@@ -325,11 +522,16 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
         return
       }
     } else {
-      // Create new room
+      // Create new room - add created_by
+      const newRoomData = {
+        ...roomData,
+        created_by: user.id,
+      }
+
       // @ts-ignore
       const { data, error } = await supabase
         .from('rooms')
-        .insert(roomData)
+        .insert(newRoomData)
         .select()
 
       console.log('Insert result:', { data, error })
@@ -412,7 +614,7 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
           </p>
         </div>
 
-        {/* Video Upload & Quiz Editor - only show when editing existing room */}
+        {/* Video Upload & Game Queue - only show when editing existing room */}
         {room && (
           <>
             <div className="pt-4 border-t border-white/10">
@@ -427,11 +629,15 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
             </div>
 
             <div className="pt-4 border-t border-white/10">
-              <QuizEditor
+              <h4 className="text-lg font-semibold text-white mb-4">Spiel-Queue</h4>
+              <p className="text-sm text-gray-400 mb-4">
+                Wähle Spiele aus und ordne sie in der gewünschten Reihenfolge an.
+                Erstelle neue Spiele im Tab &quot;Spiele verwalten&quot;.
+              </p>
+              <GameQueue
                 roomId={room.id}
-                currentQuizData={(room as any).quiz_data}
-                onSave={() => {
-                  // Refresh will happen on form close
+                onUpdate={() => {
+                  // Optionally refresh room data
                 }}
               />
             </div>

@@ -12,7 +12,7 @@ export default async function SessionPage({ params }: PageProps) {
   const { code } = await params
   const supabase = await createClient()
 
-  // Fetch session data
+  // Fetch session with room
   const { data: session, error } = await supabase
     .from('game_sessions')
     .select(`
@@ -22,8 +22,7 @@ export default async function SessionPage({ params }: PageProps) {
         name,
         slug,
         description,
-        video_url,
-        quiz_data
+        video_url
       )
     `)
     .eq('session_code', code.toUpperCase())
@@ -32,6 +31,19 @@ export default async function SessionPage({ params }: PageProps) {
   if (error || !session) {
     notFound()
   }
+
+  // Fetch game queue for this room
+  const { data: gameQueue } = await supabase
+    .from('room_game_queue')
+    .select(`
+      *,
+      games (*)
+    `)
+    .eq('room_id', (session.rooms as any).id)
+    .order('queue_position', { ascending: true })
+
+  // Attach game queue to session
+  ;(session as any).game_queue = gameQueue || []
 
   // Check if session is completed
   if (session.status === 'completed') {

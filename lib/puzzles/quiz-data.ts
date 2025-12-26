@@ -1,14 +1,15 @@
 export interface QuizQuestion {
-  id: string
+  id?: string
   question: string
-  options: string[]
+  options?: string[] // old format
+  answers?: string[] // new format from GameEditor
   correctAnswer: number // index of correct option
   points: number
 }
 
 export interface QuizData {
-  title: string
-  description: string
+  title?: string
+  description?: string
   questions: QuizQuestion[]
   timePerQuestion?: number // in seconds (optional)
 }

@@ -9,6 +9,7 @@ interface QuizPuzzleProps {
   playerId: string
   quizData: QuizData
   onComplete: () => void
+  puzzleIndex?: number
 }
 
 export default function QuizPuzzle({
@@ -16,6 +17,7 @@ export default function QuizPuzzle({
   playerId,
   quizData,
   onComplete,
+  puzzleIndex = 0,
 }: QuizPuzzleProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -44,7 +46,7 @@ export default function QuizPuzzle({
     await supabase.from('player_actions').insert({
       session_id: sessionId,
       player_id: playerId,
-      puzzle_index: 0,
+      puzzle_index: puzzleIndex,
       action_type: 'quiz_answer',
       data: {
         questionId: currentQuestion.id,
@@ -98,7 +100,7 @@ export default function QuizPuzzle({
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-white">{quizData.title}</h2>
+        {quizData.title && <h2 className="text-3xl font-bold text-white">{quizData.title}</h2>}
         <div className="flex justify-center gap-8 text-sm">
           <div className="px-4 py-2 bg-white/10 rounded-lg">
             <span className="text-gray-400">Frage:</span>{' '}
@@ -121,7 +123,7 @@ export default function QuizPuzzle({
 
         {/* Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {currentQuestion.options.map((option, index) => (
+          {(currentQuestion.answers || currentQuestion.options || []).map((option, index) => (
             <button
               key={index}
               onClick={() => handleAnswerSelect(index)}

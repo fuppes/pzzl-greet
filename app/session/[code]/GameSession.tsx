@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { QRCodeSVG } from 'qrcode.react'
 import QuizWithLeaderboard from '@/components/puzzles/QuizWithLeaderboard'
 import MemoryWithLeaderboard from '@/components/puzzles/MemoryWithLeaderboard'
 import WordWithLeaderboard from '@/components/puzzles/WordWithLeaderboard'
 import FinalLeaderboard from '@/components/FinalLeaderboard'
 import GreetingPage from '@/components/GreetingPage'
-import { defaultQuiz } from '@/lib/puzzles/quiz-data'
 import type { Database } from '@/types/database'
+import type { RoomGameQueueWithGame } from '@/types/games'
 
 type GameSession = Database['public']['Tables']['game_sessions']['Row'] & {
   rooms: Database['public']['Tables']['rooms']['Row'] | null
+  game_queue?: RoomGameQueueWithGame[]
 }
 
 type Player = Database['public']['Tables']['players']['Row']
@@ -26,6 +28,10 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showGreeting, setShowGreeting] = useState(false)
+
+  // Get games from queue
+  const gameQueue = (session as any).game_queue || []
+  const totalGames = gameQueue.length
 
   useEffect(() => {
     const supabase = createClient()
@@ -43,7 +49,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
 
       if (data) {
         setPlayers(data)
-        const player = data.find(p => p.id === playerId)
+        const player = data.find((p: Player) => p.id === playerId)
         if (player) setCurrentPlayer(player)
       }
       setIsLoading(false)
@@ -98,14 +104,13 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     const startedAt = new Date().toISOString()
     setSession(prev => ({
       ...prev,
-      status: 'in_progress',
+      status: 'in_progress' as const,
       started_at: startedAt,
-    }))
+    } as GameSession))
 
     const supabase = createClient()
-    // @ts-ignore - Supabase type issue
-    const { data, error } = await supabase
-      .from('game_sessions')
+    const { data, error } = await (supabase
+      .from('game_sessions') as any)
       .update({
         status: 'in_progress',
         started_at: startedAt,
@@ -119,9 +124,9 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       // Revert on error
       setSession(prev => ({
         ...prev,
-        status: 'waiting',
+        status: 'waiting' as const,
         started_at: null,
-      }))
+      } as GameSession))
     }
   }
 
@@ -129,33 +134,31 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     const supabase = createClient()
     const nextPuzzleIndex = session.current_puzzle_index + 1
 
-    if (nextPuzzleIndex >= 3) {
-      // All puzzles completed - update local state immediately
+    if (nextPuzzleIndex >= totalGames) {
+      // All games completed - update local state immediately
       const completedAt = new Date().toISOString()
       setSession(prev => ({
         ...prev,
-        status: 'completed',
+        status: 'completed' as const,
         completed_at: completedAt,
-      }))
+      } as GameSession))
 
-      // @ts-ignore - Supabase type issue
-      await supabase
-        .from('game_sessions')
+      await (supabase
+        .from('game_sessions') as any)
         .update({
           status: 'completed',
           completed_at: completedAt,
         })
         .eq('id', session.id)
     } else {
-      // Move to next puzzle - update local state immediately
+      // Move to next game - update local state immediately
       setSession(prev => ({
         ...prev,
         current_puzzle_index: nextPuzzleIndex,
-      }))
+      } as GameSession))
 
-      // @ts-ignore - Supabase type issue
-      await supabase
-        .from('game_sessions')
+      await (supabase
+        .from('game_sessions') as any)
         .update({
           current_puzzle_index: nextPuzzleIndex,
         })
@@ -226,16 +229,37 @@ export default function GameSession({ session: initialSession }: GameSessionProp
               </div>
             </div>
 
-            {/* Instructions */}
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-blue-300 mb-2">
-                Wie es funktioniert
-              </h3>
-              <ul className="space-y-2 text-gray-300 text-sm">
-                <li>• Teile den Session-Code mit deinen Freunden</li>
-                <li>• Löst gemeinsam 3 Rätsel</li>
-                <li>• Am Ende erwarten euch persönliche Grüße</li>
-              </ul>
+            {/* QR Code & Instructions */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* QR Code */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center space-y-4">
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  Mit dem Handy beitreten
+                </h3>
+                <div className="bg-white p-4 rounded-lg">
+                  <QRCodeSVG
+                    value={typeof window !== 'undefined' ? window.location.href : ''}
+                    size={180}
+                    level="H"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 text-center">
+                  QR-Code scannen zum Beitreten
+                </p>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-blue-300 mb-2">
+                  Wie es funktioniert
+                </h3>
+                <ul className="space-y-2 text-gray-300 text-sm">
+                  <li>• Teile den Session-Code mit deinen Freunden</li>
+                  <li>• Oder scanne den QR-Code mit dem Handy</li>
+                  <li>• Löst gemeinsam {totalGames} Spiele</li>
+                  <li>• Am Ende erwarten euch persönliche Grüße</li>
+                </ul>
+              </div>
             </div>
 
             {/* Start Button (Host only) */}
@@ -259,34 +283,61 @@ export default function GameSession({ session: initialSession }: GameSessionProp
         {/* Game in Progress */}
         {session.status === 'in_progress' && currentPlayer && (
           <div>
-            {session.current_puzzle_index === 0 && (
-              <QuizWithLeaderboard
-                sessionId={session.id}
-                playerId={currentPlayer.id}
-                players={players}
-                quizData={(session.rooms as any)?.quiz_data || defaultQuiz}
-                isHost={isHost}
-                onContinue={handlePuzzleComplete}
-              />
-            )}
-            {session.current_puzzle_index === 1 && (
-              <MemoryWithLeaderboard
-                sessionId={session.id}
-                playerId={currentPlayer.id}
-                players={players}
-                isHost={isHost}
-                onContinue={handlePuzzleComplete}
-              />
-            )}
-            {session.current_puzzle_index === 2 && (
-              <WordWithLeaderboard
-                sessionId={session.id}
-                playerId={currentPlayer.id}
-                players={players}
-                isHost={isHost}
-                onContinue={handlePuzzleComplete}
-              />
-            )}
+            {/* Render current game based on queue */}
+            {session.current_puzzle_index < gameQueue.length && (() => {
+              const queueItem = gameQueue[session.current_puzzle_index]
+              const game = queueItem.games as any
+
+              if (game.game_type === 'quiz') {
+                return (
+                  <QuizWithLeaderboard
+                    sessionId={session.id}
+                    playerId={currentPlayer.id}
+                    players={players}
+                    quizData={game.config}
+                    isHost={isHost}
+                    onContinue={handlePuzzleComplete}
+                    puzzleIndex={session.current_puzzle_index}
+                    totalGames={totalGames}
+                    roomId={(session.rooms as any)?.id}
+                  />
+                )
+              }
+
+              if (game.game_type === 'memory') {
+                return (
+                  <MemoryWithLeaderboard
+                    sessionId={session.id}
+                    playerId={currentPlayer.id}
+                    players={players}
+                    memoryData={game.config}
+                    isHost={isHost}
+                    onContinue={handlePuzzleComplete}
+                    puzzleIndex={session.current_puzzle_index}
+                    totalGames={totalGames}
+                    roomId={(session.rooms as any)?.id}
+                  />
+                )
+              }
+
+              if (game.game_type === 'word') {
+                return (
+                  <WordWithLeaderboard
+                    sessionId={session.id}
+                    playerId={currentPlayer.id}
+                    players={players}
+                    wordData={game.config}
+                    isHost={isHost}
+                    onContinue={handlePuzzleComplete}
+                    puzzleIndex={session.current_puzzle_index}
+                    totalGames={totalGames}
+                    roomId={(session.rooms as any)?.id}
+                  />
+                )
+              }
+
+              return null
+            })()}
           </div>
         )}
 
@@ -305,8 +356,10 @@ export default function GameSession({ session: initialSession }: GameSessionProp
         {session.status === 'completed' && currentPlayer && showGreeting && (
           <GreetingPage
             sessionId={session.id}
+            playerId={currentPlayer.id}
             playerName={currentPlayer.name}
             videoUrl={(session.rooms as any)?.video_url || null}
+            roomId={(session.rooms as any)?.id}
           />
         )}
       </div>

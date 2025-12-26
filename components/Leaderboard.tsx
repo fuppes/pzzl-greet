@@ -21,6 +21,8 @@ interface LeaderboardProps {
   currentPlayerId: string
   isHost: boolean
   onContinue?: () => void
+  totalGames: number
+  roomId?: string
 }
 
 export default function Leaderboard({
@@ -30,9 +32,14 @@ export default function Leaderboard({
   currentPlayerId,
   isHost,
   onContinue,
+  totalGames,
+  roomId,
 }: LeaderboardProps) {
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [selectedEmoji, setSelectedEmoji] = useState('')
+  const [messageSent, setMessageSent] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -113,6 +120,33 @@ export default function Leaderboard({
   const allFinished = playerScores.every((p) => p.isFinished)
   const currentPlayerData = playerScores.find((p) => p.playerId === currentPlayerId)
   const currentPlayerRank = playerScores.findIndex((p) => p.playerId === currentPlayerId) + 1
+
+  const emojis = ['🎉', '❤️', '🔥', '⭐', '🎊', '👏', '🙌', '💯', '✨', '🎈', '🌟', '💝']
+
+  const handleSendMessage = async () => {
+    if (!message.trim() && !selectedEmoji) return
+    if (!roomId) return
+
+    const supabase = createClient()
+
+    const { error } = await (supabase.from('player_messages') as any).insert({
+      session_id: sessionId,
+      player_id: currentPlayerId,
+      room_id: roomId,
+      message: message.trim() || '(Nur Emoji)',
+      emoji: selectedEmoji || null,
+    })
+
+    if (error) {
+      console.error('Error sending message:', error)
+      alert('Fehler beim Senden der Nachricht')
+      return
+    }
+
+    setMessageSent(true)
+    setMessage('')
+    setSelectedEmoji('')
+  }
 
   if (isLoading) {
     return (
@@ -222,7 +256,7 @@ export default function Leaderboard({
           }}
           className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"
         >
-          {puzzleIndex === 2 ? 'Zum Endergebnis' : 'Weiter zum nächsten Rätsel'}
+          {puzzleIndex === totalGames - 1 ? 'Zur Bestenliste' : 'Weiter zum nächsten Spiel'}
         </button>
       )}
 
@@ -230,9 +264,9 @@ export default function Leaderboard({
       {allFinished && !isHost && (
         <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-gray-400">
-            {puzzleIndex === 2
-              ? 'Warte darauf, dass der Host zum Endergebnis weitergeht...'
-              : 'Warte darauf, dass der Host zum nächsten Rätsel weitergeht...'
+            {puzzleIndex === totalGames - 1
+              ? 'Warte darauf, dass der Host zur Bestenliste weitergeht...'
+              : 'Warte darauf, dass der Host zum nächsten Spiel weitergeht...'
             }
           </p>
         </div>

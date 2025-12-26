@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MemoryPuzzle from './MemoryPuzzle'
 import Leaderboard from '../Leaderboard'
-import { defaultMemory } from '@/lib/puzzles/memory-data'
+import type { MemoryConfig } from '@/types/games'
 import type { Database } from '@/types/database'
 
 type Player = Database['public']['Tables']['players']['Row']
@@ -13,16 +13,24 @@ interface MemoryWithLeaderboardProps {
   sessionId: string
   playerId: string
   players: Player[]
+  memoryData: MemoryConfig
   isHost: boolean
   onContinue: () => void
+  puzzleIndex?: number
+  totalGames?: number
+  roomId?: string
 }
 
 export default function MemoryWithLeaderboard({
   sessionId,
   playerId,
   players,
+  memoryData,
   isHost,
   onContinue,
+  puzzleIndex = 0,
+  totalGames = 3,
+  roomId,
 }: MemoryWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -36,7 +44,7 @@ export default function MemoryWithLeaderboard({
         .from('player_actions')
         .select('player_id')
         .eq('session_id', sessionId)
-        .eq('puzzle_index', 1)
+        .eq('puzzle_index', puzzleIndex)
         .eq('action_type', 'memory_complete')
 
       if (!actions) return
@@ -69,7 +77,7 @@ export default function MemoryWithLeaderboard({
         },
         (payload) => {
           const action = payload.new as any
-          if (action.action_type === 'memory_complete' && action.puzzle_index === 1) {
+          if (action.action_type === 'memory_complete' && action.puzzle_index === puzzleIndex) {
             checkAllFinished()
           }
         }
@@ -80,7 +88,7 @@ export default function MemoryWithLeaderboard({
       if (pollInterval) clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
-  }, [sessionId, players, isFinished, allPlayersFinished])
+  }, [sessionId, players, isFinished, allPlayersFinished, puzzleIndex])
 
   const handleMemoryComplete = async () => {
     // Record completion in database
@@ -89,7 +97,7 @@ export default function MemoryWithLeaderboard({
     await supabase.from('player_actions').insert({
       session_id: sessionId,
       player_id: playerId,
-      puzzle_index: 1,
+      puzzle_index: puzzleIndex,
       action_type: 'memory_complete',
       data: {},
     })
@@ -102,11 +110,13 @@ export default function MemoryWithLeaderboard({
     return (
       <Leaderboard
         sessionId={sessionId}
-        puzzleIndex={1}
+        puzzleIndex={puzzleIndex}
         players={players}
         currentPlayerId={playerId}
         isHost={isHost}
         onContinue={onContinue}
+        totalGames={totalGames}
+        roomId={roomId}
       />
     )
   }
@@ -129,12 +139,22 @@ export default function MemoryWithLeaderboard({
   }
 
   // Show memory game
+  // Convert MemoryConfig to MemoryGameData format
+  const memoryGameData = {
+    title: 'Memory',
+    description: 'Finde alle Paare!',
+    pairs: memoryData.pairs.map(pair => ({
+      emoji: pair.content,
+      name: `Paar ${pair.id}`,
+    })),
+  }
+
   return (
     <MemoryPuzzle
       sessionId={sessionId}
       playerId={playerId}
       players={players}
-      memoryData={defaultMemory}
+      memoryData={memoryGameData}
       onComplete={handleMemoryComplete}
     />
   )
