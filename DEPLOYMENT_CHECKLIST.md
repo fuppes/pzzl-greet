@@ -7,6 +7,7 @@
 - [ ] Run `database-rooms-add-created-by.sql` in Supabase SQL Editor
 - [ ] Run `database-messages-add-selfie.sql` in Supabase SQL Editor
 - [ ] Run `database-players-add-avatar.sql` in Supabase SQL Editor
+- [ ] **WICHTIG:** Run `database-rls-security-update.sql` in Supabase SQL Editor (Security Fix!)
 
 ### Supabase Storage
 - [ ] Create bucket: `player-selfies` (Public, 5MB limit)
@@ -50,9 +51,14 @@
 
 ### Security
 - [ ] Row Level Security (RLS) enabled on all tables
-- [ ] RLS policies tested
+- [ ] **CRITICAL:** Run `database-rls-security-update.sql` to fix open policies
+- [ ] RLS policies tested (vor Deployment testen!)
 - [ ] No API keys exposed
 - [ ] Auth redirects working
+- [ ] Storage policies configured (player-selfies, room-videos)
+- [ ] Admin role in user_metadata gesetzt für Admin-User
+- [ ] ✅ **NEW:** Admin Middleware implementiert (middleware.ts)
+- [ ] Middleware getestet (siehe MIDDLEWARE_TESTING.md)
 
 ## 🌐 Deployment (Vercel)
 

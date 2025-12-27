@@ -5,9 +5,10 @@ import AdminLogin from './AdminLogin'
 export default async function AdminPage() {
   const supabase = await createClient()
 
-  // Check if user is authenticated
+  // Get user (middleware already checked auth and role)
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Show login page if no user (middleware allows /admin path)
   if (!user) {
     return <AdminLogin />
   }
