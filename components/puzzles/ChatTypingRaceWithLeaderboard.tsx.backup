@@ -1,0 +1,452 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import Leaderboard from '@/components/Leaderboard'
+
+interface Player {
+  id: string
+  name: string
+  color: string
+}
+
+interface ChatMessage {
+  id: number
+  from: string
+  avatar: string
+  message: string
+  requiredResponse: string
+  timestamp: string
+}
+
+const CHAT_MESSAGES: ChatMessage[] = [
+  {
+    id: 1,
+    from: 'Oma Inge',
+    avatar: '👵',
+    message: 'Hallo Schatz! Ich wünsche dir einen guten Rutsch ins neue Jahr! 🎆',
+    requiredResponse: 'Danke Oma, dir auch einen guten Rutsch!',
+    timestamp: '23:45',
+  },
+  {
+    id: 2,
+    from: 'Mama',
+    avatar: '👩',
+    message: 'Frohes neues Jahr mein Liebling! 🎉🍾',
+    requiredResponse: 'Frohes neues Jahr Mama!',
+    timestamp: '00:01',
+  },
+  {
+    id: 3,
+    from: 'Papa',
+    avatar: '👨',
+    message: 'Prosit Neujahr! Auf ein erfolgreiches 2025! 🥂',
+    requiredResponse: 'Prost Papa, auf 2025!',
+    timestamp: '00:02',
+  },
+  {
+    id: 4,
+    from: 'Bester Kumpel',
+    avatar: '😎',
+    message: 'Yoooo alter gutes neues! Party heute? 🎊',
+    requiredResponse: 'Frohes Neues! Klar, bin dabei!',
+    timestamp: '00:05',
+  },
+  {
+    id: 5,
+    from: 'Schwester',
+    avatar: '👧',
+    message: 'Happy New Year Bruderherz! 🎈',
+    requiredResponse: 'Dir auch ein frohes neues Jahr!',
+    timestamp: '00:10',
+  },
+  {
+    id: 6,
+    from: 'Chef',
+    avatar: '👔',
+    message: 'Guten Rutsch ins neue Jahr! Erholen Sie sich gut. 📧',
+    requiredResponse: 'Vielen Dank, Ihnen auch!',
+    timestamp: '23:30',
+  },
+  {
+    id: 7,
+    from: 'Opa Werner',
+    avatar: '👴',
+    message: 'Na Jung, alles Gute fürs neue Jahr! Bleib gesund! 🎆',
+    requiredResponse: 'Danke Opa, du auch!',
+    timestamp: '00:15',
+  },
+  {
+    id: 8,
+    from: 'Tante Helga',
+    avatar: '👩‍🦰',
+    message: 'Liebes, ich wünsche dir nur das Beste für 2025! 💝',
+    requiredResponse: 'Vielen Dank Tante Helga!',
+    timestamp: '00:20',
+  },
+]
+
+export default function ChatTypingRaceWithLeaderboard({
+  sessionId,
+  players,
+  playerId,
+  isHost,
+  onContinue,
+}: {
+  sessionId: string
+  players: Player[]
+  playerId: string
+  isHost: boolean
+  onContinue?: () => void
+}) {
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
+  const [typedText, setTypedText] = useState('')
+  const [gameStarted, setGameStarted] = useState(false)
+  const [gameFinished, setGameFinished] = useState(false)
+  const [allPlayersFinished, setAllPlayersFinished] = useState(false)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [messageStartTime, setMessageStartTime] = useState<number | null>(null)
+  const [totalTime, setTotalTime] = useState<number>(0)
+  const [showingIncoming, setShowingIncoming] = useState(false)
+  const [chatHistory, setChatHistory] = useState<Array<{ type: 'incoming' | 'outgoing'; message: ChatMessage; actualResponse?: string }>>([])
+  const inputRef = useRef<HTMLInputElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  const currentMessage = CHAT_MESSAGES[currentMessageIndex]
+  const totalMessages = CHAT_MESSAGES.length
+
+  useEffect(() => {
+    // Auto-scroll to bottom
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatHistory, showingIncoming])
+
+  useEffect(() => {
+    if (!gameStarted || gameFinished) return
+
+    const supabase = createClient()
+
+    // Check if all players finished
+    const checkAllFinished = async () => {
+      const { data: actions } = await supabase
+        .from('player_actions')
+        .select('player_id, data')
+        .eq('session_id', sessionId)
+        .eq('action_type', 'chat_typing_finished')
+
+      if (!actions) return
+
+      const finishedPlayers = new Set(actions.map((a: any) => a.player_id))
+      const allFinished = players.every((p) => finishedPlayers.has(p.id))
+
+      setAllPlayersFinished(allFinished)
+    }
+
+    checkAllFinished()
+
+    // Subscribe to player actions
+    const channel = supabase
+      .channel(`chat-typing-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'player_actions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => {
+          checkAllFinished()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [sessionId, players, gameStarted, gameFinished])
+
+  const startGame = () => {
+    setGameStarted(true)
+    setStartTime(Date.now())
+    showNextMessage()
+  }
+
+  const showNextMessage = () => {
+    if (currentMessageIndex >= totalMessages) {
+      finishGame()
+      return
+    }
+
+    setShowingIncoming(true)
+    setTypedText('')
+
+    // Simulate typing delay (message appears)
+    setTimeout(() => {
+      setChatHistory((prev) => [
+        ...prev,
+        { type: 'incoming', message: CHAT_MESSAGES[currentMessageIndex] },
+      ])
+      setShowingIncoming(false)
+      setMessageStartTime(Date.now())
+
+      // Focus input
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }, 1000)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!messageStartTime || showingIncoming) return
+    setTypedText(e.target.value)
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && typedText.trim()) {
+      checkAnswer()
+    }
+  }
+
+  const checkAnswer = async () => {
+    if (!currentMessage || !messageStartTime) return
+
+    const isCorrect = typedText.trim().toLowerCase() === currentMessage.requiredResponse.toLowerCase()
+
+    if (!isCorrect) {
+      // Wrong answer - shake animation or show error
+      inputRef.current?.classList.add('animate-shake')
+      setTimeout(() => inputRef.current?.classList.remove('animate-shake'), 500)
+      return
+    }
+
+    // Correct! Add to chat history
+    setChatHistory((prev) => [
+      ...prev,
+      { type: 'outgoing', message: currentMessage, actualResponse: typedText },
+    ])
+
+    const responseTime = Date.now() - messageStartTime
+    const points = Math.max(10, 100 - Math.floor(responseTime / 100)) // Faster = more points
+
+    // Save action
+    const supabase = createClient()
+    await (supabase.from('player_actions') as any).insert({
+      session_id: sessionId,
+      player_id: playerId,
+      puzzle_index: 0,
+      action_type: 'chat_message_sent',
+      data: {
+        messageId: currentMessage.id,
+        responseTime,
+        points,
+      },
+    })
+
+    // Move to next message
+    if (currentMessageIndex < totalMessages - 1) {
+      setCurrentMessageIndex(currentMessageIndex + 1)
+      setTimeout(() => showNextMessage(), 500)
+    } else {
+      finishGame()
+    }
+  }
+
+  const finishGame = async () => {
+    if (!startTime) return
+
+    const finalTime = Date.now() - startTime
+    setTotalTime(finalTime)
+    setGameFinished(true)
+
+    // Calculate total points from all messages
+    const supabase = createClient()
+    const { data: actions } = await supabase
+      .from('player_actions')
+      .select('data')
+      .eq('session_id', sessionId)
+      .eq('player_id', playerId)
+      .eq('action_type', 'chat_message_sent')
+
+    const totalPoints = actions?.reduce((sum: number, action: any) => sum + (action.data?.points || 0), 0) || 0
+
+    // Save finish action
+    await (supabase.from('player_actions') as any).insert({
+      session_id: sessionId,
+      player_id: playerId,
+      puzzle_index: 0,
+      action_type: 'chat_typing_finished',
+      data: {
+        totalTime: finalTime,
+        points: totalPoints,
+        messagesCompleted: totalMessages,
+      },
+    })
+  }
+
+  if (!gameStarted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white/10 backdrop-blur-sm rounded-2xl p-8 text-center space-y-6">
+          <div className="text-6xl mb-4">💬</div>
+          <h2 className="text-4xl font-bold text-white mb-4">Chat Typing Race</h2>
+          <p className="text-xl text-gray-300 mb-6">
+            Es ist Silvester! 🎆 Deine Freunde und Familie bombardieren dich mit Neujahrsgrüßen!
+          </p>
+          <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-4 mb-6">
+            <p className="text-white font-semibold mb-2">🎯 Spielregeln:</p>
+            <ul className="text-gray-300 text-left space-y-2 max-w-md mx-auto">
+              <li>✉️ Du bekommst {totalMessages} Nachrichten</li>
+              <li>⌨️ Tippe die Antwort EXAKT wie vorgegeben</li>
+              <li>⚡ Je schneller du antwortest, desto mehr Punkte!</li>
+              <li>❌ Falsche Antworten zählen nicht</li>
+            </ul>
+          </div>
+          {isHost && (
+            <button
+              onClick={startGame}
+              className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold text-xl rounded-lg transition-all transform hover:scale-105 shadow-lg"
+            >
+              Spiel starten 🚀
+            </button>
+          )}
+          {!isHost && (
+            <p className="text-gray-400 text-lg">Warte auf den Host...</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (allPlayersFinished) {
+    return (
+      <Leaderboard
+        sessionId={sessionId}
+        players={players}
+        playerId={playerId}
+        isHost={isHost}
+        onContinue={onContinue}
+        puzzleIndex={0}
+        totalGames={1}
+      />
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
+      <div className="max-w-2xl w-full h-[700px] bg-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Chat Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="text-2xl">💬</div>
+            <div>
+              <h3 className="text-white font-bold">Silvester Nachrichten</h3>
+              <p className="text-blue-100 text-sm">
+                {gameFinished ? 'Fertig!' : `Nachricht ${currentMessageIndex + 1} von ${totalMessages}`}
+              </p>
+            </div>
+          </div>
+          {!gameFinished && (
+            <div className="text-white text-sm bg-white/20 px-3 py-1 rounded-full">
+              {Math.floor((Date.now() - (startTime || 0)) / 1000)}s
+            </div>
+          )}
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900">
+          {chatHistory.map((item, idx) => (
+            <div key={idx}>
+              {item.type === 'incoming' ? (
+                // Incoming message (from friend/family)
+                <div className="flex items-start space-x-3 animate-slide-in">
+                  <div className="text-3xl">{item.message.avatar}</div>
+                  <div className="flex-1">
+                    <div className="flex items-baseline space-x-2 mb-1">
+                      <span className="text-white font-semibold text-sm">{item.message.from}</span>
+                      <span className="text-gray-500 text-xs">{item.message.timestamp}</span>
+                    </div>
+                    <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3 max-w-md">
+                      <p className="text-white">{item.message.message}</p>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400 italic">
+                      Antworte mit: "{item.message.requiredResponse}"
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Outgoing message (your response)
+                <div className="flex items-start space-x-3 justify-end animate-slide-in">
+                  <div className="flex-1 flex flex-col items-end">
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl rounded-tr-none p-3 max-w-md">
+                      <p className="text-white">{item.actualResponse}</p>
+                    </div>
+                    <span className="text-gray-500 text-xs mt-1">✓ Gesendet</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {showingIncoming && currentMessage && (
+            <div className="flex items-start space-x-3 animate-pulse">
+              <div className="text-3xl">{currentMessage.avatar}</div>
+              <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {gameFinished && (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">🎉</div>
+              <h3 className="text-2xl font-bold text-white mb-2">Geschafft!</h3>
+              <p className="text-gray-300">
+                Du hast alle Nachrichten beantwortet in {(totalTime / 1000).toFixed(1)}s
+              </p>
+              <p className="text-gray-400 text-sm mt-2">Warte auf die anderen Spieler...</p>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input Area */}
+        {!gameFinished && !showingIncoming && currentMessage && (
+          <div className="bg-slate-800 border-t border-slate-700 p-4">
+            <div className="flex items-center space-x-3">
+              <input
+                ref={inputRef}
+                type="text"
+                value={typedText}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                placeholder="Tippe deine Antwort..."
+                className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <button
+                onClick={checkAnswer}
+                disabled={!typedText.trim()}
+                className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white px-6 py-3 rounded-full font-semibold transition-all"
+              >
+                Senden ➤
+              </button>
+            </div>
+            <p className="text-gray-400 text-xs mt-2 text-center">
+              💡 Tipp: Tippe genau wie vorgegeben (Groß-/Kleinschreibung egal)
+            </p>
+          </div>
+        )}
+
+        {gameFinished && (
+          <div className="bg-slate-800 border-t border-slate-700 p-4 text-center">
+            <p className="text-gray-400">Warte auf andere Spieler...</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

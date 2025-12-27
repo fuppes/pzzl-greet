@@ -1,4 +1,4 @@
-export type GameType = 'quiz' | 'memory' | 'word'
+export type GameType = 'quiz' | 'memory' | 'word' | 'chat_typing'
 
 // Quiz Game Config
 export interface QuizQuestion {
@@ -34,8 +34,13 @@ export interface WordConfig {
   words: WordPuzzle[]
 }
 
+// Chat Typing Game Config
+export interface ChatTypingConfig {
+  duration: number // Game duration in seconds
+}
+
 // Generic Game Config
-export type GameConfig = QuizConfig | MemoryConfig | WordConfig
+export type GameConfig = QuizConfig | MemoryConfig | WordConfig | ChatTypingConfig
 
 // Game Database Type
 export interface Game {
@@ -111,5 +116,14 @@ export const GAME_TYPES = {
         },
       ],
     } as WordConfig,
+  },
+  chat_typing: {
+    id: 'chat_typing' as const,
+    name: 'Chat Typing Race',
+    icon: '💬',
+    description: 'Antworte deinen Freunden so schnell wie möglich!',
+    defaultConfig: {
+      duration: 60,
+    } as ChatTypingConfig,
   },
 } as const

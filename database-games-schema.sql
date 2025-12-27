@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS games (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
-  game_type TEXT NOT NULL CHECK (game_type IN ('quiz', 'memory', 'word')),
+  game_type TEXT NOT NULL CHECK (game_type IN ('quiz', 'memory', 'word', 'chat_typing')),
   config JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

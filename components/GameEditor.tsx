@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
+import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
 import { GAME_TYPES } from '@/types/games'
 
 interface GameEditorProps {
@@ -140,6 +140,9 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
           )}
           {gameType === 'word' && (
             <WordConfigEditor config={config as WordConfig} onChange={setConfig} />
+          )}
+          {gameType === 'chat_typing' && (
+            <ChatTypingConfigEditor config={config as ChatTypingConfig} onChange={setConfig} />
           )}
         </div>
 
@@ -597,6 +600,42 @@ function WordConfigEditor({
 
       <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
         💡 Tipp: Nach 10 Sekunden verliert der Spieler 1 Punkt pro Sekunde. Empfohlen: 20 Punkte max.
+      </div>
+    </div>
+  )
+}
+
+// Chat Typing Config Editor
+function ChatTypingConfigEditor({
+  config,
+  onChange,
+}: {
+  config: ChatTypingConfig
+  onChange: (config: ChatTypingConfig) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <h4 className="text-lg font-semibold text-white">Chat Typing Race Einstellungen</h4>
+
+      <div>
+        <label className="block text-sm text-gray-300 mb-2">
+          Spieldauer (in Sekunden)
+        </label>
+        <input
+          type="number"
+          value={config.duration}
+          onChange={(e) => onChange({ duration: parseInt(e.target.value) || 60 })}
+          className="w-32 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          min="10"
+          max="300"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Empfohlen: 30-120 Sekunden
+        </p>
+      </div>
+
+      <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
+        💡 Die Spieler müssen in der vorgegebenen Zeit so viele Nachrichten wie möglich korrekt beantworten. Bei falschen Antworten gibt es eine Zeitstrafe von 3 Sekunden.
       </div>
     </div>
   )

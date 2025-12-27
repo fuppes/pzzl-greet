@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import QuizWithLeaderboard from '@/components/puzzles/QuizWithLeaderboard'
 import MemoryWithLeaderboard from '@/components/puzzles/MemoryWithLeaderboard'
 import WordWithLeaderboard from '@/components/puzzles/WordWithLeaderboard'
+import ChatTypingRaceWithLeaderboard from '@/components/puzzles/ChatTypingRaceWithLeaderboard'
 import FinalLeaderboard from '@/components/FinalLeaderboard'
 import GreetingPage from '@/components/GreetingPage'
 import ProgressBar from '@/components/ProgressBar'
@@ -375,6 +376,19 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                     puzzleIndex={session.current_puzzle_index}
                     totalGames={totalGames}
                     roomId={(session.rooms as any)?.id}
+                  />
+                )
+              }
+
+              if (game.game_type === 'chat_typing') {
+                return (
+                  <ChatTypingRaceWithLeaderboard
+                    sessionId={session.id}
+                    playerId={currentPlayer.id}
+                    players={players}
+                    config={game.config}
+                    isHost={isHost}
+                    onContinue={handlePuzzleComplete}
                   />
                 )
               }
