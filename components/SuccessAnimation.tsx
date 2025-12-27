@@ -42,8 +42,8 @@ export default function SuccessAnimation({
   }))
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
-      {/* Confetti */}
+    <div className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
+      {/* Confetti - falls from top */}
       {confettiParticles.map((particle) => (
         <div
           key={particle.id}
@@ -59,22 +59,19 @@ export default function SuccessAnimation({
         />
       ))}
 
-      {/* Success Message */}
-      <div className="animate-success-bounce">
-        <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-6 rounded-2xl shadow-2xl shadow-green-500/50 transform scale-100">
-          <div className="flex items-center gap-4">
-            <div className="text-6xl animate-spin-slow">{emoji}</div>
-            <div>
-              <p className="text-3xl font-bold">{message}</p>
-              <p className="text-sm opacity-90 mt-1">Weiter so!</p>
+      {/* Success Message - top center, flies in from top */}
+      <div className="flex justify-center pt-8 px-4">
+        <div className="animate-success-bounce">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl shadow-green-500/50">
+            <div className="flex items-center gap-3">
+              <div className="text-4xl md:text-5xl animate-spin-slow">{emoji}</div>
+              <div>
+                <p className="text-xl md:text-2xl font-bold">{message}</p>
+                <p className="text-xs md:text-sm opacity-90 mt-1">Weiter so!</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Ripple Effect */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-32 h-32 rounded-full bg-green-400/30 animate-ping" />
       </div>
     </div>
   )

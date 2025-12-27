@@ -44,6 +44,11 @@ export default function WordPuzzle({
   const currentWord = wordData.words[currentWordIndex]
   const isLastWord = currentWordIndex === wordData.words.length - 1
 
+  // Reset animation when word changes
+  useEffect(() => {
+    setShowSuccessAnimation(false)
+  }, [currentWordIndex])
+
   // Calculate points based on time: 20 points max, -1 per second after 10s, min 0
   const calculatePoints = (seconds: number): number => {
     if (seconds <= 10) return 20

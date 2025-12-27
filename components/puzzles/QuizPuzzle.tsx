@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SuccessAnimation from '../SuccessAnimation'
 import type { QuizData } from '@/lib/puzzles/quiz-data'
@@ -30,6 +30,10 @@ export default function QuizPuzzle({
   const currentQuestion = quizData.questions[currentQuestionIndex]
   const isLastQuestion = currentQuestionIndex === quizData.questions.length - 1
 
+  // Reset animation when question changes
+  useEffect(() => {
+    setShowSuccessAnimation(false)
+  }, [currentQuestionIndex])
 
   const handleAnswerSelect = async (answerIndex: number) => {
     if (hasAnswered) return
