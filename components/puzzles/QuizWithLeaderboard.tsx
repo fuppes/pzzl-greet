@@ -59,17 +59,9 @@ export default function QuizWithLeaderboard({
       const allFinished = players.every((player) => {
         const answerCount = playerAnswerCounts[player.id] || 0
         const hasFinished = answerCount >= quizData.questions.length
-        console.log(`Player ${player.name} (${player.id}): ${answerCount}/${quizData.questions.length} answers - Finished: ${hasFinished}`)
         return hasFinished
       })
 
-      console.log('Check all finished:', {
-        playerAnswerCounts,
-        allFinished,
-        players: players.map(p => ({ id: p.id, name: p.name })),
-        questionsLength: quizData.questions.length,
-        playersCount: players.length
-      })
       setAllPlayersFinished(allFinished)
     }
 
@@ -94,7 +86,6 @@ export default function QuizWithLeaderboard({
           filter: `session_id=eq.${sessionId}`,
         },
         () => {
-          console.log('New answer detected, checking...')
           checkAllFinished()
         }
       )

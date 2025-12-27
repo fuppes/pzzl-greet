@@ -52,7 +52,6 @@ export default function MemoryWithLeaderboard({
       // For memory, if anyone completes it, everyone is done (collaborative game)
       const someoneFinished = actions.length > 0
 
-      console.log('Check memory finished:', { actionsCount: actions.length, someoneFinished })
       setAllPlayersFinished(someoneFinished)
     }
 

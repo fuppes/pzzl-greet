@@ -72,8 +72,6 @@ export default function Leaderboard({
         scores[action.player_id].questionCount += 1
       })
 
-      console.log('Cumulative leaderboard scores (up to puzzle', puzzleIndex + '):', scores)
-
       // Map to player scores
       const playerScoresData: PlayerScore[] = players.map((player) => {
         const playerData = scores[player.id] || { score: 0, questionCount: 0 }
@@ -251,7 +249,6 @@ export default function Leaderboard({
       {allFinished && isHost && onContinue && (
         <button
           onClick={() => {
-            console.log('Continue button clicked!')
             onContinue()
           }}
           className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"

@@ -101,8 +101,6 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   }, [session.id])
 
   const handleStartGame = async () => {
-    console.log('Starting game...', session.id)
-
     // Update local state immediately for instant feedback
     const startedAt = new Date().toISOString()
     setSession(prev => ({
@@ -112,7 +110,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     } as GameSession))
 
     const supabase = createClient()
-    const { data, error } = await (supabase
+    const { error } = await (supabase
       .from('game_sessions') as any)
       .update({
         status: 'in_progress',
@@ -121,7 +119,6 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       .eq('id', session.id)
       .select()
 
-    console.log('Update result:', { data, error })
     if (error) {
       console.error('Error starting game:', error)
       // Revert on error

@@ -20,13 +20,7 @@ export default async function RoomPage({ params }: PageProps) {
     .eq('is_active', true)
     .single()
 
-  // Debug logging
-  console.log('Fetching room with slug:', slug)
-  console.log('Room data:', room)
-  console.log('Error:', error)
-
   if (error || !room) {
-    console.log('Room not found, showing 404')
     notFound()
   }
 

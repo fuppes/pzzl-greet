@@ -50,7 +50,6 @@ export default function GreetingPage({ sessionId, playerId, playerName, videoUrl
         try {
           await video.play()
         } catch (playError) {
-          console.log('First play attempt failed, trying with onloadedmetadata:', playError)
           // Fallback: wait for metadata
           video.onloadedmetadata = async () => {
             try {

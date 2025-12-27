@@ -63,8 +63,6 @@ export default function FinalLeaderboard({
         scores[action.player_id] = Math.max(0, scores[action.player_id] + points) // Min 0
       })
 
-      console.log('Final leaderboard scores:', scores)
-
       // Map to player scores
       const playerScoresData: PlayerScore[] = players.map((player) => {
         return {

@@ -32,37 +32,23 @@ export default function Inbox() {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      console.log('[Inbox] No user found')
       setIsLoading(false)
       return
     }
 
-    console.log('[Inbox] Current user:', user.id, user.email)
-
-    // First, get all rooms (to debug - später mit created_by filtern)
-    const { data: allRooms, error: roomsError } = await supabase
-      .from('rooms')
-      .select('id, name, created_by')
-
-    console.log('[Inbox] All rooms:', allRooms, roomsError)
-
     // Get rooms created by this user
-    const { data: userRooms, error: userRoomsError } = await supabase
+    const { data: userRooms } = await supabase
       .from('rooms')
       .select('id')
       .eq('created_by', user.id)
 
-    console.log('[Inbox] User rooms (created_by filter):', userRooms, userRoomsError)
-
     if (!userRooms || userRooms.length === 0) {
-      console.log('[Inbox] No rooms found for this user, showing empty inbox')
       setMessages([])
       setIsLoading(false)
       return
     }
 
     const roomIds = userRooms.map((room: any) => room.id)
-    console.log('[Inbox] Room IDs to query:', roomIds)
 
     // Now get messages only for these rooms
     let query = supabase
@@ -80,7 +66,6 @@ export default function Inbox() {
     }
 
     const { data, error } = await query
-    console.log('[Inbox] Messages query result:', { count: data?.length, data, error })
 
     if (error) {
       console.error('Error loading messages:', error)

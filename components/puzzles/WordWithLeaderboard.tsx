@@ -60,7 +60,6 @@ export default function WordWithLeaderboard({
         return (playerAnswerCounts[player.id] || 0) >= wordData.words.length
       })
 
-      console.log('Check word game finished:', { playerAnswerCounts, allFinished })
       setAllPlayersFinished(allFinished)
     }
 

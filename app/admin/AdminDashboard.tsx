@@ -102,10 +102,10 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
 
   const handleToggleActive = async (room: Room) => {
     const supabase = createClient()
-    // @ts-ignore
-    const { error } = await supabase
+    // Type assertion needed due to Supabase type generation issues
+    const { error } = await (supabase
       .from('rooms')
-      .update({ is_active: !room.is_active })
+      .update({ is_active: !room.is_active }) as any)
       .eq('id', room.id)
 
     if (error) {
@@ -503,8 +503,6 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
       updated_at: new Date().toISOString(),
     }
 
-    console.log('Submitting room data:', roomData)
-
     if (room) {
       // Update existing room
       // @ts-ignore
@@ -513,8 +511,6 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
         .update(roomData)
         .eq('id', room.id)
         .select()
-
-      console.log('Update result:', { data, error })
 
       if (error) {
         alert('Fehler beim Aktualisieren: ' + error.message)
@@ -533,8 +529,6 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
         .from('rooms')
         .insert(newRoomData)
         .select()
-
-      console.log('Insert result:', { data, error })
 
       if (error) {
         alert('Fehler beim Erstellen: ' + error.message)
