@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import SuccessAnimation from '../SuccessAnimation'
 import type { WordGameData } from '@/lib/puzzles/word-data'
 import type { Database } from '@/types/database'
 
@@ -38,6 +39,7 @@ export default function WordPuzzle({
   const [timeElapsed, setTimeElapsed] = useState(0)
   const [wordStartTime, setWordStartTime] = useState<number>(Date.now())
   const [earnedPoints, setEarnedPoints] = useState(0)
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   const currentWord = wordData.words[currentWordIndex]
   const isLastWord = currentWordIndex === wordData.words.length - 1
@@ -126,6 +128,7 @@ export default function WordPuzzle({
 
     if (correct) {
       setScore((prev) => prev + finalPoints)
+      setShowSuccessAnimation(true)
     }
 
     // Record answer in database
@@ -156,10 +159,18 @@ export default function WordPuzzle({
     setTimeElapsed(0)
     setWordStartTime(Date.now())
     setEarnedPoints(0)
+    setShowSuccessAnimation(false)
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Success Animation */}
+      <SuccessAnimation
+        show={showSuccessAnimation}
+        message="Perfekt!"
+        emoji="⭐"
+      />
+
       {/* Header */}
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-white">{wordData.title}</h2>

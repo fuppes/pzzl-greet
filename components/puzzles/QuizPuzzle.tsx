@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import SuccessAnimation from '../SuccessAnimation'
 import type { QuizData } from '@/lib/puzzles/quiz-data'
 
 interface QuizPuzzleProps {
@@ -24,6 +25,7 @@ export default function QuizPuzzle({
   const [hasAnswered, setHasAnswered] = useState(false)
   const [score, setScore] = useState(0)
   const [showResults, setShowResults] = useState(false)
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   const currentQuestion = quizData.questions[currentQuestionIndex]
   const isLastQuestion = currentQuestionIndex === quizData.questions.length - 1
@@ -38,6 +40,8 @@ export default function QuizPuzzle({
     const isCorrect = answerIndex === currentQuestion.correctAnswer
     if (isCorrect) {
       setScore((prev) => prev + currentQuestion.points)
+      // Show success animation for correct answers
+      setShowSuccessAnimation(true)
     }
 
     // Record answer in database
@@ -75,6 +79,7 @@ export default function QuizPuzzle({
     setSelectedAnswer(null)
     setHasAnswered(false)
     setShowResults(false)
+    setShowSuccessAnimation(false)
   }
 
   const getOptionClass = (optionIndex: number) => {
@@ -98,6 +103,13 @@ export default function QuizPuzzle({
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Success Animation */}
+      <SuccessAnimation
+        show={showSuccessAnimation}
+        message="Richtig!"
+        emoji="🎉"
+      />
+
       {/* Header */}
       <div className="text-center space-y-4">
         {quizData.title && <h2 className="text-3xl font-bold text-white">{quizData.title}</h2>}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import SuccessAnimation from '../SuccessAnimation'
 import { generateMemoryCards, type MemoryGameData, type MemoryCard } from '@/lib/puzzles/memory-data'
 import type { Database } from '@/types/database'
 
@@ -27,6 +28,7 @@ export default function MemoryPuzzle({
   const [matchedPairs, setMatchedPairs] = useState<string[]>([])
   const [isChecking, setIsChecking] = useState(false)
   const [moves, setMoves] = useState(0)
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   // Initialize cards
   useEffect(() => {
@@ -107,6 +109,7 @@ export default function MemoryPuzzle({
         if (card1 && card2 && card1.pairId === card2.pairId) {
           // Match found! +10 points
           setMatchedPairs((prev) => [...prev, card1.pairId])
+          setShowSuccessAnimation(true)
 
           // Record match in database with points
           // @ts-ignore
@@ -121,6 +124,9 @@ export default function MemoryPuzzle({
               points: 10,
             },
           })
+
+          // Hide animation after 2 seconds
+          setTimeout(() => setShowSuccessAnimation(false), 2000)
         } else {
           // No match - record penalty (-2 points)
           // @ts-ignore
@@ -151,6 +157,13 @@ export default function MemoryPuzzle({
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Success Animation */}
+      <SuccessAnimation
+        show={showSuccessAnimation}
+        message="Match gefunden!"
+        emoji="🎊"
+      />
+
       {/* Header */}
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-white">{memoryData.title}</h2>
