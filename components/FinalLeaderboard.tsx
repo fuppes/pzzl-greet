@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Achievement, { checkAchievements, type AchievementData } from './Achievement'
 import type { Database } from '@/types/database'
 
 type Player = Database['public']['Tables']['players']['Row']
@@ -30,6 +31,8 @@ export default function FinalLeaderboard({
 }: FinalLeaderboardProps) {
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [achievements, setAchievements] = useState<AchievementData[]>([])
+  const [currentAchievementIndex, setCurrentAchievementIndex] = useState(0)
 
   useEffect(() => {
     const supabase = createClient()
@@ -77,10 +80,19 @@ export default function FinalLeaderboard({
 
       setPlayerScores(playerScoresData)
       setIsLoading(false)
+
+      // Check achievements for current player
+      const earnedAchievements = checkAchievements(actions, players, currentPlayerId)
+      setAchievements(earnedAchievements)
     }
 
     loadScores()
-  }, [sessionId, players])
+  }, [sessionId, players, currentPlayerId])
+
+  // Handle showing next achievement
+  const handleAchievementComplete = () => {
+    setCurrentAchievementIndex(prev => prev + 1)
+  }
 
   const currentPlayerData = playerScores.find((p) => p.playerId === currentPlayerId)
   const currentPlayerRank = playerScores.findIndex((p) => p.playerId === currentPlayerId) + 1
@@ -96,6 +108,14 @@ export default function FinalLeaderboard({
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {/* Show achievements one by one */}
+      {achievements.length > 0 && currentAchievementIndex < achievements.length && (
+        <Achievement
+          achievement={achievements[currentAchievementIndex]}
+          onComplete={handleAchievementComplete}
+        />
+      )}
+
       {/* Celebration Header */}
       <div className="text-center space-y-6 py-8">
         <div className="text-6xl animate-bounce">🎉</div>

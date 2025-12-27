@@ -8,6 +8,8 @@ import MemoryWithLeaderboard from '@/components/puzzles/MemoryWithLeaderboard'
 import WordWithLeaderboard from '@/components/puzzles/WordWithLeaderboard'
 import FinalLeaderboard from '@/components/FinalLeaderboard'
 import GreetingPage from '@/components/GreetingPage'
+import ProgressBar from '@/components/ProgressBar'
+import ShakeCelebration from '@/components/ShakeCelebration'
 import type { Database } from '@/types/database'
 import type { RoomGameQueueWithGame } from '@/types/games'
 
@@ -28,6 +30,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showGreeting, setShowGreeting] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   // Get games from queue
   const gameQueue = (session as any).game_queue || []
@@ -170,6 +173,17 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     setShowGreeting(true)
   }
 
+  const handleCopyLink = async () => {
+    const url = window.location.href
+    try {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+    }
+  }
+
   const isHost = currentPlayer?.id === session.host_player_id
 
   if (isLoading) {
@@ -182,6 +196,9 @@ export default function GameSession({ session: initialSession }: GameSessionProp
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a]">
+      {/* Shake to Celebrate - nur während des Spiels */}
+      {session.status === 'in_progress' && <ShakeCelebration />}
+
       <div className="max-w-4xl w-full space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
@@ -190,12 +207,41 @@ export default function GameSession({ session: initialSession }: GameSessionProp
               {session.rooms?.name}
             </span>
           </h1>
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-gray-400">Session Code:</span>
-            <code className="px-4 py-2 bg-white/10 rounded-lg text-xl font-mono text-white border border-white/20">
-              {session.session_code}
-            </code>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Session Code:</span>
+              <code className="px-4 py-2 bg-white/10 rounded-lg text-xl font-mono text-white border border-white/20">
+                {session.session_code}
+              </code>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium"
+            >
+              {linkCopied ? (
+                <>
+                  <span>✓</span>
+                  <span>Link kopiert!</span>
+                </>
+              ) : (
+                <>
+                  <span>🔗</span>
+                  <span>Link kopieren</span>
+                </>
+              )}
+            </button>
           </div>
+
+          {/* Progress Bar - nur während des Spiels */}
+          {session.status === 'in_progress' && totalGames > 0 && (
+            <div className="max-w-2xl mx-auto pt-4">
+              <ProgressBar
+                currentStep={session.current_puzzle_index + 1}
+                totalSteps={totalGames}
+                label="Spielfortschritt"
+              />
+            </div>
+          )}
         </div>
 
         {/* Lobby */}
@@ -213,10 +259,10 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                     className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
                   >
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
                       style={{ backgroundColor: player.color || '#3b82f6' }}
                     >
-                      {player.name.charAt(0).toUpperCase()}
+                      {(player as any).avatar || '😀'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium truncate">{player.name}</p>

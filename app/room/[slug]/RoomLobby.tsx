@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { createSessionData, createPlayerData } from '@/lib/game/session'
+import AvatarPicker from '@/components/AvatarPicker'
 import type { Database } from '@/types/database'
 
 type Room = Database['public']['Tables']['rooms']['Row']
@@ -13,6 +14,7 @@ interface RoomLobbyProps {
 
 export default function RoomLobby({ room }: RoomLobbyProps) {
   const [playerName, setPlayerName] = useState('')
+  const [selectedAvatar, setSelectedAvatar] = useState('😀')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,14 +42,17 @@ export default function RoomLobby({ room }: RoomLobbyProps) {
 
       if (sessionError) throw sessionError
 
-      // Create player
+      // Create player with avatar
       const playerData = createPlayerData({
         sessionId: session.id,
         name: playerName.trim(),
       })
-      const { data: player, error: playerError } = await supabase
-        .from('players')
-        .insert(playerData)
+      const { data: player, error: playerError } = await (supabase
+        .from('players') as any)
+        .insert({
+          ...playerData,
+          avatar: selectedAvatar
+        })
         .select()
         .single()
 
@@ -94,6 +99,13 @@ export default function RoomLobby({ room }: RoomLobbyProps) {
         {/* Join Form */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
           <form onSubmit={handleCreateSession} className="space-y-6">
+            {/* Avatar Selection */}
+            <AvatarPicker
+              selectedAvatar={selectedAvatar}
+              onSelect={setSelectedAvatar}
+            />
+
+            {/* Name Input */}
             <div className="space-y-2">
               <label htmlFor="playerName" className="block text-sm font-medium text-gray-300">
                 Dein Name
