@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
+import { logError } from '@/lib/error-handler'
 
 type Player = Database['public']['Tables']['players']['Row']
 
@@ -127,7 +128,7 @@ export default function Leaderboard({
 
     const supabase = createClient()
 
-    const { error } = await (supabase.from('player_messages') as any).insert({
+    const { error } = await supabase.from('player_messages').insert({
       session_id: sessionId,
       player_id: currentPlayerId,
       room_id: roomId,
@@ -136,7 +137,7 @@ export default function Leaderboard({
     })
 
     if (error) {
-      console.error('Error sending message:', error)
+      logError(error, 'Leaderboard: sendMessage')
       alert('Fehler beim Senden der Nachricht')
       return
     }

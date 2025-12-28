@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 interface VideoUploadProps {
   roomId: string
@@ -82,8 +83,8 @@ export default function VideoUpload({
       setUploadProgress(100)
       onUploadComplete(publicUrl)
     } catch (err: any) {
-      console.error('Upload error:', err)
-      setError('Upload fehlgeschlagen: ' + err.message)
+      logError(err, 'VideoUpload: handleUpload')
+      setError(getUserFriendlyMessage(err))
     } finally {
       setIsUploading(false)
     }

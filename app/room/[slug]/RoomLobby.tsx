@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { createSessionData, createPlayerData } from '@/lib/game/session'
 import AvatarPicker from '@/components/AvatarPicker'
 import type { Database } from '@/types/database'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 type Room = Database['public']['Tables']['rooms']['Row']
 
@@ -72,8 +73,8 @@ export default function RoomLobby({ room }: RoomLobbyProps) {
       // Redirect to game session
       window.location.href = `/session/${session.session_code}`
     } catch (err) {
-      console.error('Error creating session:', err)
-      setError('Fehler beim Erstellen der Session. Bitte versuche es erneut.')
+      logError(err as Error, 'handleCreateSession')
+      setError(getUserFriendlyMessage(err as Error))
     } finally {
       setIsCreating(false)
     }

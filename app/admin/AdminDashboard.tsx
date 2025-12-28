@@ -11,6 +11,7 @@ import GameEditor from '@/components/GameEditor'
 import GameQueue from '@/components/GameQueue'
 import Inbox from '@/components/Inbox'
 import type { Game } from '@/types/games'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 type Room = Database['public']['Tables']['rooms']['Row']
 
@@ -43,26 +44,34 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
   }
 
   const refreshRooms = async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('rooms')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (data) {
-      setRooms(data)
+      if (error) throw error
+      if (data) setRooms(data)
+    } catch (error) {
+      logError(error as Error, 'refreshRooms')
+      alert(getUserFriendlyMessage(error as Error))
     }
   }
 
   const refreshGames = async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('games')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('games')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (data) {
-      setGames(data as Game[])
+      if (error) throw error
+      if (data) setGames(data as Game[])
+    } catch (error) {
+      logError(error as Error, 'refreshGames')
+      alert(getUserFriendlyMessage(error as Error))
     }
   }
 
@@ -71,13 +80,15 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
       return
     }
 
-    const supabase = createClient()
-    const { error } = await supabase.from('games').delete().eq('id', gameId)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('games').delete().eq('id', gameId)
 
-    if (error) {
-      alert('Fehler beim Löschen: ' + error.message)
-    } else {
-      refreshGames()
+      if (error) throw error
+      await refreshGames()
+    } catch (error) {
+      logError(error as Error, 'handleDeleteGame')
+      alert(getUserFriendlyMessage(error as Error))
     }
   }
 
@@ -86,32 +97,34 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
       return
     }
 
-    const supabase = createClient()
-    // @ts-ignore
-    const { error } = await supabase
-      .from('rooms')
-      .delete()
-      .eq('id', roomId)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', roomId)
 
-    if (error) {
-      alert('Fehler beim Löschen: ' + error.message)
-    } else {
-      refreshRooms()
+      if (error) throw error
+      await refreshRooms()
+    } catch (error) {
+      logError(error as Error, 'handleDeleteRoom')
+      alert(getUserFriendlyMessage(error as Error))
     }
   }
 
   const handleToggleActive = async (room: Room) => {
-    const supabase = createClient()
-    // Type assertion needed due to Supabase type generation issues
-    const { error } = await (supabase
-      .from('rooms')
-      .update({ is_active: !room.is_active }) as any)
-      .eq('id', room.id)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('rooms')
+        .update({ is_active: !room.is_active })
+        .eq('id', room.id)
 
-    if (error) {
-      alert('Fehler beim Aktualisieren: ' + error.message)
-    } else {
-      refreshRooms()
+      if (error) throw error
+      await refreshRooms()
+    } catch (error) {
+      logError(error as Error, 'handleToggleActive')
+      alert(getUserFriendlyMessage(error as Error))
     }
   }
 
@@ -478,67 +491,64 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
     e.preventDefault()
     setIsLoading(true)
 
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      alert('Nicht angemeldet')
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) {
+        alert('Nicht angemeldet')
+        setIsLoading(false)
+        return
+      }
+
+      // Parse date correctly - add time to ensure it's treated as end of day
+      let expiresAtISO = null
+      if (expiresAt) {
+        const dateObj = new Date(expiresAt + 'T23:59:59.999Z')
+        expiresAtISO = dateObj.toISOString()
+      }
+
+      const roomData = {
+        name,
+        slug,
+        description: description || null,
+        expires_at: expiresAtISO,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (room) {
+        // Update existing room
+        const { error } = await supabase
+          .from('rooms')
+          .update(roomData)
+          .eq('id', room.id)
+          .select()
+
+        if (error) throw error
+      } else {
+        // Create new room - add created_by
+        const newRoomData = {
+          ...roomData,
+          created_by: user.id,
+        }
+
+        const { error } = await supabase
+          .from('rooms')
+          .insert(newRoomData)
+          .select()
+
+        if (error) throw error
+      }
+
       setIsLoading(false)
-      return
+      onSuccess()
+    } catch (error) {
+      logError(error as Error, 'handleSubmit (RoomForm)')
+      alert(getUserFriendlyMessage(error as Error))
+      setIsLoading(false)
     }
-
-    // Parse date correctly - add time to ensure it's treated as end of day
-    let expiresAtISO = null
-    if (expiresAt) {
-      const dateObj = new Date(expiresAt + 'T23:59:59.999Z')
-      expiresAtISO = dateObj.toISOString()
-    }
-
-    const roomData = {
-      name,
-      slug,
-      description: description || null,
-      expires_at: expiresAtISO,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (room) {
-      // Update existing room
-      // @ts-ignore
-      const { data, error } = await supabase
-        .from('rooms')
-        .update(roomData)
-        .eq('id', room.id)
-        .select()
-
-      if (error) {
-        alert('Fehler beim Aktualisieren: ' + error.message)
-        setIsLoading(false)
-        return
-      }
-    } else {
-      // Create new room - add created_by
-      const newRoomData = {
-        ...roomData,
-        created_by: user.id,
-      }
-
-      // @ts-ignore
-      const { data, error } = await supabase
-        .from('rooms')
-        .insert(newRoomData)
-        .select()
-
-      if (error) {
-        alert('Fehler beim Erstellen: ' + error.message)
-        setIsLoading(false)
-        return
-      }
-    }
-
-    setIsLoading(false)
-    onSuccess()
   }
 
   return (

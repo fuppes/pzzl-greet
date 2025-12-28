@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
 import { GAME_TYPES } from '@/types/games'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 interface GameEditorProps {
   game?: Game
@@ -34,41 +35,38 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
     }
 
     setIsSaving(true)
-    const supabase = createClient()
 
-    const gameData = {
-      name,
-      description: description || null,
-      game_type: gameType,
-      config,
-      updated_at: new Date().toISOString(),
-    }
+    try {
+      const supabase = createClient()
 
-    if (game) {
-      // @ts-ignore
-      const { error } = await supabase
-        .from('games')
-        .update(gameData)
-        .eq('id', game.id)
-
-      if (error) {
-        alert('Fehler beim Aktualisieren: ' + error.message)
-        setIsSaving(false)
-        return
+      const gameData = {
+        name,
+        description: description || null,
+        game_type: gameType,
+        config,
+        updated_at: new Date().toISOString(),
       }
-    } else {
-      // @ts-ignore
-      const { error } = await supabase.from('games').insert(gameData)
 
-      if (error) {
-        alert('Fehler beim Erstellen: ' + error.message)
-        setIsSaving(false)
-        return
+      if (game) {
+        const { error } = await supabase
+          .from('games')
+          .update(gameData)
+          .eq('id', game.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('games').insert(gameData)
+
+        if (error) throw error
       }
-    }
 
-    setIsSaving(false)
-    onSave()
+      setIsSaving(false)
+      onSave()
+    } catch (error) {
+      logError(error as Error, 'handleSave (GameEditor)')
+      alert(getUserFriendlyMessage(error as Error))
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -606,6 +604,15 @@ function WordConfigEditor({
 }
 
 // Chat Typing Config Editor
+const CHAT_TYPING_CONFIG = {
+  DEFAULT_DURATION: 60,
+  MIN_DURATION: 10,
+  MAX_DURATION: 300,
+  RECOMMENDED_MIN: 30,
+  RECOMMENDED_MAX: 120,
+  PENALTY_SECONDS: 3,
+} as const
+
 function ChatTypingConfigEditor({
   config,
   onChange,
@@ -624,18 +631,18 @@ function ChatTypingConfigEditor({
         <input
           type="number"
           value={config.duration}
-          onChange={(e) => onChange({ duration: parseInt(e.target.value) || 60 })}
+          onChange={(e) => onChange({ duration: parseInt(e.target.value) || CHAT_TYPING_CONFIG.DEFAULT_DURATION })}
           className="w-32 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          min="10"
-          max="300"
+          min={CHAT_TYPING_CONFIG.MIN_DURATION}
+          max={CHAT_TYPING_CONFIG.MAX_DURATION}
         />
         <p className="text-xs text-gray-400 mt-1">
-          Empfohlen: 30-120 Sekunden
+          Empfohlen: {CHAT_TYPING_CONFIG.RECOMMENDED_MIN}-{CHAT_TYPING_CONFIG.RECOMMENDED_MAX} Sekunden
         </p>
       </div>
 
       <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
-        💡 Die Spieler müssen in der vorgegebenen Zeit so viele Nachrichten wie möglich korrekt beantworten. Bei falschen Antworten gibt es eine Zeitstrafe von 3 Sekunden.
+        💡 Die Spieler müssen in der vorgegebenen Zeit so viele Nachrichten wie möglich korrekt beantworten. Bei falschen Antworten gibt es eine Zeitstrafe von {CHAT_TYPING_CONFIG.PENALTY_SECONDS} Sekunden.
       </div>
     </div>
   )

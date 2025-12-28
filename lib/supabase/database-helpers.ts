@@ -1,6 +1,7 @@
 // Helper functions for type-safe Supabase operations
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { handleSupabaseError } from '@/lib/error-handler'
 
 type TypedSupabaseClient = SupabaseClient<Database>
 
@@ -12,10 +13,12 @@ export async function updateRoom(
   roomId: string,
   updates: Partial<Database['public']['Tables']['rooms']['Update']>
 ) {
-  return await supabase
+  const { error } = await supabase
     .from('rooms')
     .update(updates)
     .eq('id', roomId)
+
+  if (error) handleSupabaseError(error, 'updateRoom')
 }
 
 /**
@@ -25,9 +28,11 @@ export async function insertPlayerMessage(
   supabase: TypedSupabaseClient,
   message: Database['public']['Tables']['player_messages']['Insert']
 ) {
-  return await supabase
+  const { error } = await supabase
     .from('player_messages')
     .insert(message)
+
+  if (error) handleSupabaseError(error, 'insertPlayerMessage')
 }
 
 /**
@@ -43,9 +48,11 @@ export async function insertPlayerAction(
     data: any
   }
 ) {
-  return await supabase
+  const { error } = await supabase
     .from('player_actions')
     .insert(action)
+
+  if (error) handleSupabaseError(error, 'insertPlayerAction')
 }
 
 /**
@@ -55,23 +62,28 @@ export async function insertPlayer(
   supabase: TypedSupabaseClient,
   player: Database['public']['Tables']['players']['Insert'] & { avatar?: string }
 ) {
-  return await supabase
+  const { data, error } = await supabase
     .from('players')
     .insert(player)
     .select()
     .single()
+
+  if (error) handleSupabaseError(error, 'insertPlayer')
+  return data
 }
 
 /**
- * Type-safe insert for game_sessions table
+ * Type-safe update for game_sessions table
  */
 export async function updateGameSession(
   supabase: TypedSupabaseClient,
   sessionId: string,
   updates: Partial<Database['public']['Tables']['game_sessions']['Update']>
 ) {
-  return await supabase
+  const { error } = await supabase
     .from('game_sessions')
     .update(updates)
     .eq('id', sessionId)
+
+  if (error) handleSupabaseError(error, 'updateGameSession')
 }

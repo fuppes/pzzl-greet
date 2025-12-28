@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import AdminDashboard from './AdminDashboard'
 import AdminLogin from './AdminLogin'
+import { logError } from '@/lib/error-handler'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ export default async function AdminPage() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching rooms:', error)
+    logError(error, 'AdminPage: fetchRooms')
   }
 
   return <AdminDashboard rooms={rooms || []} user={user} />

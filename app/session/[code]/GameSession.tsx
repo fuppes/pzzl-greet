@@ -13,6 +13,7 @@ import ProgressBar from '@/components/ProgressBar'
 import ShakeCelebration from '@/components/ShakeCelebration'
 import type { Database } from '@/types/database'
 import type { RoomGameQueueWithGame } from '@/types/games'
+import { logError } from '@/lib/error-handler'
 
 type GameSession = Database['public']['Tables']['game_sessions']['Row'] & {
   rooms: Database['public']['Tables']['rooms']['Row'] | null
@@ -121,7 +122,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       .select()
 
     if (error) {
-      console.error('Error starting game:', error)
+      logError(error, 'GameSession: startGame')
       // Revert on error
       setSession(prev => ({
         ...prev,
@@ -178,7 +179,8 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy link:', err)
+      // Silent fail - clipboard API not available or permission denied
+      // User can still manually copy the URL
     }
   }
 

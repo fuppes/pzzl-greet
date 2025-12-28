@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 interface GreetingPageProps {
   sessionId: string
@@ -133,13 +134,13 @@ export default function GreetingPage({ sessionId, playerId, playerName, videoUrl
     if (!roomId) return
 
     setIsUploading(true)
-    const supabase = createClient()
 
-    let selfieUrl = null
+    try {
+      const supabase = createClient()
+      let selfieUrl = null
 
-    // Upload selfie if exists
-    if (selfieDataUrl) {
-      try {
+      // Upload selfie if exists
+      if (selfieDataUrl) {
         // Convert data URL to blob
         const response = await fetch(selfieDataUrl)
         const blob = await response.blob()
@@ -155,12 +156,7 @@ export default function GreetingPage({ sessionId, playerId, playerName, videoUrl
             cacheControl: '3600',
           })
 
-        if (uploadError) {
-          console.error('Error uploading selfie:', uploadError)
-          alert('Fehler beim Hochladen des Selfies')
-          setIsUploading(false)
-          return
-        }
+        if (uploadError) throw uploadError
 
         // Get public URL
         const { data: urlData } = supabase.storage
@@ -168,36 +164,30 @@ export default function GreetingPage({ sessionId, playerId, playerName, videoUrl
           .getPublicUrl(uploadData.path)
 
         selfieUrl = urlData.publicUrl
-      } catch (err) {
-        console.error('Error processing selfie:', err)
-        alert('Fehler beim Verarbeiten des Selfies')
-        setIsUploading(false)
-        return
       }
-    }
 
-    // Insert message
-    const { error } = await (supabase.from('player_messages') as any).insert({
-      session_id: sessionId,
-      player_id: playerId,
-      room_id: roomId,
-      message: message.trim() || '(Nur Emoji)',
-      emoji: selectedEmoji || null,
-      selfie_url: selfieUrl,
-    })
+      // Insert message
+      const { error } = await supabase.from('player_messages').insert({
+        session_id: sessionId,
+        player_id: playerId,
+        room_id: roomId,
+        message: message.trim() || '(Nur Emoji)',
+        emoji: selectedEmoji || null,
+        selfie_url: selfieUrl,
+      })
 
-    if (error) {
-      console.error('Error sending message:', error)
-      alert('Fehler beim Senden der Nachricht')
+      if (error) throw error
+
+      setMessageSent(true)
+      setMessage('')
+      setSelectedEmoji('')
+      setSelfieDataUrl(null)
+    } catch (err) {
+      logError(err as Error, 'handleSendMessage')
+      alert(getUserFriendlyMessage(err as Error))
+    } finally {
       setIsUploading(false)
-      return
     }
-
-    setMessageSent(true)
-    setMessage('')
-    setSelectedEmoji('')
-    setSelfieDataUrl(null)
-    setIsUploading(false)
   }
 
   return (

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { createPlayerData } from '@/lib/game/session'
 import type { Database } from '@/types/database'
+import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 type GameSession = Database['public']['Tables']['game_sessions']['Row'] & {
   rooms: Database['public']['Tables']['rooms']['Row'] | null
@@ -53,8 +54,8 @@ export default function JoinSessionForm({ session }: JoinSessionFormProps) {
       // Redirect to game session
       window.location.href = `/session/${session.session_code}`
     } catch (err) {
-      console.error('Error joining session:', err)
-      setError('Fehler beim Beitreten. Bitte versuche es erneut.')
+      logError(err as Error, 'JoinSessionForm: handleJoin')
+      setError(getUserFriendlyMessage(err as Error))
     } finally {
       setIsJoining(false)
     }

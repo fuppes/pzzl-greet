@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { logError } from '@/lib/error-handler'
 
 interface Message {
   id: string
@@ -68,7 +69,7 @@ export default function Inbox() {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error loading messages:', error)
+      logError(error, 'Inbox: loadMessages')
       setIsLoading(false)
       return
     }

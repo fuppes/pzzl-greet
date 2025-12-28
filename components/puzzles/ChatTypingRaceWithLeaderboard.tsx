@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Leaderboard from '@/components/Leaderboard'
 import type { ChatTypingConfig } from '@/types/games'
@@ -20,6 +20,17 @@ interface ChatMessage {
   timestamp: string
   penaltyResponse?: string
 }
+
+// Game Configuration Constants
+const PENALTY_TIME_SECONDS = 3
+const CORRECT_ANSWER_POINTS = 100
+const MESSAGE_DISPLAY_DELAY_MS = 1000
+const PENALTY_DISPLAY_DELAY_MS = 500
+const PENALTY_DURATION_MS = 2000
+const NEXT_MESSAGE_DELAY_MS = 500
+const FOCUS_INPUT_DELAY_MS = 100
+const FADE_OUT_DURATION_MS = 300
+const TIMER_INTERVAL_MS = 1000
 
 const CHAT_MESSAGES: ChatMessage[] = [
   {
@@ -204,8 +215,6 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
 ]
 
-const PENALTY_TIME = 3
-
 export default function ChatTypingRaceWithLeaderboard({
   sessionId,
   players,
@@ -241,6 +250,7 @@ export default function ChatTypingRaceWithLeaderboard({
   // Start game automatically
   useEffect(() => {
     showNextMessage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -301,25 +311,25 @@ export default function ChatTypingRaceWithLeaderboard({
         }
         return prev - 1
       })
-    }, 1000)
+    }, TIMER_INTERVAL_MS)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [gameFinished, timeLeft])
+  }, [gameFinished, timeLeft, finishGame])
 
-  const getRandomMessage = () => {
+  const getRandomMessage = useCallback(() => {
     return CHAT_MESSAGES[Math.floor(Math.random() * CHAT_MESSAGES.length)]
-  }
+  }, [])
 
-  const showNextMessage = () => {
+  const showNextMessage = useCallback(() => {
     // Trigger fade-out for old messages
     setChatHistory((prev) => prev.map(item => ({ ...item, fadeOut: true })))
 
     // Clear old messages after fade-out
     clearChatTimerRef.current = setTimeout(() => {
       setChatHistory([])
-    }, 300)
+    }, FADE_OUT_DURATION_MS)
 
     // Show new message
     const newMessage = getRandomMessage()
@@ -330,9 +340,9 @@ export default function ChatTypingRaceWithLeaderboard({
     setTimeout(() => {
       setChatHistory([{ type: 'incoming', message: newMessage }])
       setShowingIncoming(false)
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }, 1000)
-  }
+      setTimeout(() => inputRef.current?.focus(), FOCUS_INPUT_DELAY_MS)
+    }, MESSAGE_DISPLAY_DELAY_MS)
+  }, [getRandomMessage])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (showingIncoming || showingPenalty) return
@@ -364,15 +374,15 @@ export default function ChatTypingRaceWithLeaderboard({
           { type: 'penalty', message: currentMessage },
         ])
 
-        setTimeLeft((prev) => Math.max(0, prev - PENALTY_TIME))
+        setTimeLeft((prev) => Math.max(0, prev - PENALTY_TIME_SECONDS))
 
         penaltyTimerRef.current = setTimeout(() => {
           setShowingPenalty(false)
           if (timeLeft > 0) {
             showNextMessage()
           }
-        }, 2000)
-      }, 500)
+        }, PENALTY_DURATION_MS)
+      }, PENALTY_DISPLAY_DELAY_MS)
 
       return
     }
@@ -382,7 +392,7 @@ export default function ChatTypingRaceWithLeaderboard({
       { type: 'outgoing', message: currentMessage, actualResponse: typedText },
     ])
 
-    const points = 100
+    const points = CORRECT_ANSWER_POINTS
     setTotalPoints((prev) => prev + points)
     setMessagesAnswered((prev) => prev + 1)
 
@@ -399,10 +409,10 @@ export default function ChatTypingRaceWithLeaderboard({
       },
     })
 
-    setTimeout(() => showNextMessage(), 500)
+    setTimeout(() => showNextMessage(), NEXT_MESSAGE_DELAY_MS)
   }
 
-  const finishGame = async () => {
+  const finishGame = useCallback(async () => {
     setGameFinished(true)
 
     const supabase = createClient()
@@ -422,7 +432,7 @@ export default function ChatTypingRaceWithLeaderboard({
     if (timerRef.current) clearInterval(timerRef.current)
     if (penaltyTimerRef.current) clearTimeout(penaltyTimerRef.current)
     if (clearChatTimerRef.current) clearTimeout(clearChatTimerRef.current)
-  }
+  }, [sessionId, playerId, GAME_DURATION, timeLeft, totalPoints, messagesAnswered])
 
   // Show leaderboard when:
   // 1. All players finished OR
