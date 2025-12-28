@@ -424,7 +424,10 @@ export default function ChatTypingRaceWithLeaderboard({
     if (clearChatTimerRef.current) clearTimeout(clearChatTimerRef.current)
   }
 
-  if (allPlayersFinished) {
+  // Show leaderboard when:
+  // 1. All players finished OR
+  // 2. This player finished (show leaderboard while waiting for others)
+  if (gameFinished || allPlayersFinished) {
     return (
       <Leaderboard
         sessionId={sessionId}

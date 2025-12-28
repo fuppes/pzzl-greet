@@ -2,16 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // This is a temporary solution for Supabase type generation issues
-    ignoreBuildErrors: true,
+    // Type checking enabled - will fail build on errors
+    ignoreBuildErrors: false,
   },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
+    // ESLint checking enabled - will fail build on errors
+    ignoreDuringBuilds: false,
   },
 };
 
