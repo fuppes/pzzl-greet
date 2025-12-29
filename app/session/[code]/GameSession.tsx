@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { QRCodeSVG } from 'qrcode.react'
 import QuizWithLeaderboard from '@/components/puzzles/QuizWithLeaderboard'
@@ -34,6 +34,12 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   const [showGreeting, setShowGreeting] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
+  // ✅ keep latest status for polling guard without stale closure issues
+  const sessionStatusRef = useRef<GameSession['status']>(initialSession.status)
+  useEffect(() => {
+    sessionStatusRef.current = session.status
+  }, [session.status])
+
   // Get games from queue
   const gameQueue = (session as any).game_queue || []
   const totalGames = gameQueue.length
@@ -62,24 +68,24 @@ export default function GameSession({ session: initialSession }: GameSessionProp
         .eq('session_id', session.id)
         .order('joined_at', { ascending: true })
         .returns<Player[]>()
-    
+
       if (error) {
         logError(error, 'GameSession: loadPlayers')
         setIsLoading(false)
         return
       }
-    
+
       const list = playersData ?? []
       setPlayers(list)
-    
-      const player = list.find(p => p.id === playerId)
+
+      const player = list.find((p) => p.id === playerId)
       if (player) {
         setCurrentPlayer(player)
       } else {
         window.location.href = `/join/${session.session_code}`
         return
       }
-    
+
       setIsLoading(false)
     }
 
@@ -102,7 +108,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       )
       .subscribe()
 
-    // Subscribe to session changes
+    // Subscribe to session changes (✅ only apply meaningful changes)
     const sessionChannel = supabase
       .channel(`session_${session.id}`)
       .on(
@@ -114,13 +120,44 @@ export default function GameSession({ session: initialSession }: GameSessionProp
           filter: `id=eq.${session.id}`,
         },
         (payload) => {
-          setSession(prev => ({ ...prev, ...(payload.new as Partial<GameSession>) }))
+          const next = payload.new as Partial<GameSession>
+
+          setSession((prev) => {
+            const nextStatus = (next.status ?? prev.status) as GameSession['status']
+            const nextIndex =
+              typeof next.current_puzzle_index === 'number'
+                ? next.current_puzzle_index
+                : prev.current_puzzle_index
+            const nextStartedAt = (next.started_at ?? prev.started_at) as GameSession['started_at']
+            const nextCompletedAt = (next.completed_at ?? prev.completed_at) as GameSession['completed_at']
+
+            const changed =
+              nextStatus !== prev.status ||
+              nextIndex !== prev.current_puzzle_index ||
+              nextStartedAt !== prev.started_at ||
+              nextCompletedAt !== prev.completed_at
+
+            // ✅ Prevent needless re-renders during games (e.g. memory reshuffle)
+            if (!changed) return prev
+
+            return {
+              ...prev,
+              ...next,
+              status: nextStatus,
+              current_puzzle_index: nextIndex,
+              started_at: nextStartedAt,
+              completed_at: nextCompletedAt,
+            }
+          })
         }
       )
       .subscribe()
 
     // Polling fallback - check session status every 2 seconds
+    // ✅ Do NOT poll during in_progress to avoid re-init / reshuffle in games
     const pollInterval = setInterval(async () => {
+      if (sessionStatusRef.current === 'in_progress') return
+
       const { data, error } = await supabase
         .from('game_sessions')
         .select('status, current_puzzle_index, started_at, completed_at')
@@ -131,14 +168,13 @@ export default function GameSession({ session: initialSession }: GameSessionProp
             'status' | 'current_puzzle_index' | 'started_at' | 'completed_at'
           >
         >()
-    
+
       if (error) return
-    
+
       if (data) {
-        setSession(prev => ({ ...prev, ...data }))
+        setSession((prev) => ({ ...prev, ...data }))
       }
     }, 2000)
-
 
     return () => {
       supabase.removeChannel(playersChannel)
@@ -147,19 +183,20 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     }
   }, [session.id, session.session_code])
 
-
   const handleStartGame = async () => {
     // Update local state immediately for instant feedback
     const startedAt = new Date().toISOString()
-    setSession(prev => ({
-      ...prev,
-      status: 'in_progress' as const,
-      started_at: startedAt,
-    } as GameSession))
+    setSession(
+      (prev) =>
+        ({
+          ...prev,
+          status: 'in_progress' as const,
+          started_at: startedAt,
+        }) as GameSession
+    )
 
     const supabase = createClient()
-    const { error } = await (supabase
-      .from('game_sessions') as any)
+    const { error } = await (supabase.from('game_sessions') as any)
       .update({
         status: 'in_progress',
         started_at: startedAt,
@@ -170,11 +207,14 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     if (error) {
       logError(error, 'GameSession: startGame')
       // Revert on error
-      setSession(prev => ({
-        ...prev,
-        status: 'waiting' as const,
-        started_at: null,
-      } as GameSession))
+      setSession(
+        (prev) =>
+          ({
+            ...prev,
+            status: 'waiting' as const,
+            started_at: null,
+          }) as GameSession
+      )
     }
   }
 
@@ -185,14 +225,16 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     if (nextPuzzleIndex >= totalGames) {
       // All games completed - update local state immediately
       const completedAt = new Date().toISOString()
-      setSession(prev => ({
-        ...prev,
-        status: 'completed' as const,
-        completed_at: completedAt,
-      } as GameSession))
+      setSession(
+        (prev) =>
+          ({
+            ...prev,
+            status: 'completed' as const,
+            completed_at: completedAt,
+          }) as GameSession
+      )
 
-      await (supabase
-        .from('game_sessions') as any)
+      await (supabase.from('game_sessions') as any)
         .update({
           status: 'completed',
           completed_at: completedAt,
@@ -200,13 +242,15 @@ export default function GameSession({ session: initialSession }: GameSessionProp
         .eq('id', session.id)
     } else {
       // Move to next game - update local state immediately
-      setSession(prev => ({
-        ...prev,
-        current_puzzle_index: nextPuzzleIndex,
-      } as GameSession))
+      setSession(
+        (prev) =>
+          ({
+            ...prev,
+            current_puzzle_index: nextPuzzleIndex,
+          }) as GameSession
+      )
 
-      await (supabase
-        .from('game_sessions') as any)
+      await (supabase.from('game_sessions') as any)
         .update({
           current_puzzle_index: nextPuzzleIndex,
         })
@@ -330,7 +374,11 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                 </h3>
                 <div className="bg-white p-4 rounded-lg">
                   <QRCodeSVG
-                    value={typeof window !== 'undefined' ? `${window.location.origin}/join/${session.session_code}` : ''}
+                    value={
+                      typeof window !== 'undefined'
+                        ? `${window.location.origin}/join/${session.session_code}`
+                        : ''
+                    }
                     size={180}
                     level="H"
                   />
@@ -375,77 +423,77 @@ export default function GameSession({ session: initialSession }: GameSessionProp
         {/* Game in Progress */}
         {session.status === 'in_progress' && currentPlayer && (
           <div>
-            {/* Render current game based on queue */}
-            {session.current_puzzle_index < gameQueue.length && (() => {
-              const queueItem = gameQueue[session.current_puzzle_index]
-              const game = queueItem.games as any
+            {session.current_puzzle_index < gameQueue.length &&
+              (() => {
+                const queueItem = gameQueue[session.current_puzzle_index]
+                const game = queueItem.games as any
 
-              if (game.game_type === 'quiz') {
-                return (
-                  <QuizWithLeaderboard
-                    sessionId={session.id}
-                    playerId={currentPlayer.id}
-                    players={players}
-                    quizData={game.config}
-                    isHost={isHost}
-                    onContinue={handlePuzzleComplete}
-                    puzzleIndex={session.current_puzzle_index}
-                    totalGames={totalGames}
-                    roomId={(session.rooms as any)?.id}
-                  />
-                )
-              }
+                if (game.game_type === 'quiz') {
+                  return (
+                    <QuizWithLeaderboard
+                      sessionId={session.id}
+                      playerId={currentPlayer.id}
+                      players={players}
+                      quizData={game.config}
+                      isHost={isHost}
+                      onContinue={handlePuzzleComplete}
+                      puzzleIndex={session.current_puzzle_index}
+                      totalGames={totalGames}
+                      roomId={(session.rooms as any)?.id}
+                    />
+                  )
+                }
 
-              if (game.game_type === 'memory') {
-                return (
-                  <MemoryWithLeaderboard
-                    sessionId={session.id}
-                    playerId={currentPlayer.id}
-                    players={players}
-                    memoryData={game.config}
-                    isHost={isHost}
-                    onContinue={handlePuzzleComplete}
-                    puzzleIndex={session.current_puzzle_index}
-                    totalGames={totalGames}
-                    roomId={(session.rooms as any)?.id}
-                  />
-                )
-              }
+                if (game.game_type === 'memory') {
+                  return (
+                    <MemoryWithLeaderboard
+                      sessionId={session.id}
+                      playerId={currentPlayer.id}
+                      players={players}
+                      memoryData={game.config}
+                      isHost={isHost}
+                      onContinue={handlePuzzleComplete}
+                      puzzleIndex={session.current_puzzle_index}
+                      totalGames={totalGames}
+                      roomId={(session.rooms as any)?.id}
+                    />
+                  )
+                }
 
-              if (game.game_type === 'word') {
-                return (
-                  <WordWithLeaderboard
-                    sessionId={session.id}
-                    playerId={currentPlayer.id}
-                    players={players}
-                    wordData={game.config}
-                    isHost={isHost}
-                    onContinue={handlePuzzleComplete}
-                    puzzleIndex={session.current_puzzle_index}
-                    totalGames={totalGames}
-                    roomId={(session.rooms as any)?.id}
-                  />
-                )
-              }
+                if (game.game_type === 'word') {
+                  return (
+                    <WordWithLeaderboard
+                      sessionId={session.id}
+                      playerId={currentPlayer.id}
+                      players={players}
+                      wordData={game.config}
+                      isHost={isHost}
+                      onContinue={handlePuzzleComplete}
+                      puzzleIndex={session.current_puzzle_index}
+                      totalGames={totalGames}
+                      roomId={(session.rooms as any)?.id}
+                    />
+                  )
+                }
 
-              if (game.game_type === 'chat_typing') {
-                return (
-                  <ChatTypingRaceWithLeaderboard
-                    sessionId={session.id}
-                    playerId={currentPlayer.id}
-                    players={players as any}
-                    config={game.config}
-                    isHost={isHost}
-                    onContinue={handlePuzzleComplete}
-                    totalGames={totalGames}
-                    puzzleIndex={session.current_puzzle_index}
-                    nextGameName={nextGameName}
-                  />
-                )
-              }
+                if (game.game_type === 'chat_typing') {
+                  return (
+                    <ChatTypingRaceWithLeaderboard
+                      sessionId={session.id}
+                      playerId={currentPlayer.id}
+                      players={players as any}
+                      config={game.config}
+                      isHost={isHost}
+                      onContinue={handlePuzzleComplete}
+                      totalGames={totalGames}
+                      puzzleIndex={session.current_puzzle_index}
+                      nextGameName={nextGameName}
+                    />
+                  )
+                }
 
-              return null
-            })()}
+                return null
+              })()}
           </div>
         )}
 

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Leaderboard from '@/components/Leaderboard'
 import type { ChatTypingConfig } from '@/types/games'
+import type { Database } from '@/types/database'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface Player {
   id: string
@@ -21,16 +23,17 @@ interface ChatMessage {
   penaltyResponse?: string
 }
 
-// Game Configuration Constants
+/* ================= CONFIG ================= */
+
 const PENALTY_TIME_SECONDS = 3
 const CORRECT_ANSWER_POINTS = 100
 const MESSAGE_DISPLAY_DELAY_MS = 1000
 const PENALTY_DISPLAY_DELAY_MS = 500
 const PENALTY_DURATION_MS = 2000
 const NEXT_MESSAGE_DELAY_MS = 500
-const FOCUS_INPUT_DELAY_MS = 100
-const FADE_OUT_DURATION_MS = 300
 const TIMER_INTERVAL_MS = 1000
+
+/* ================= DATA ================= */
 
 const CHAT_MESSAGES: ChatMessage[] = [
   {
@@ -215,6 +218,23 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
 ]
 
+/* ================= TYPES ================= */
+
+type PlayerActionInsert = Database['public']['Tables']['player_actions']['Insert']
+
+type ThreadItem =
+  | { type: 'incoming'; msg: ChatMessage; pending?: boolean }
+  | { type: 'outgoing'; msg: ChatMessage; text: string }
+  | { type: 'penalty'; msg: ChatMessage }
+
+type Thread = {
+  key: string
+  avatar: string
+  items: ThreadItem[]
+}
+
+/* ================= COMPONENT ================= */
+
 export default function ChatTypingRaceWithLeaderboard({
   sessionId,
   players,
@@ -237,308 +257,266 @@ export default function ChatTypingRaceWithLeaderboard({
   nextGameName?: string
 }) {
   const GAME_DURATION = config.duration || 60
-  const [showInstructions, setShowInstructions] = useState(true)
-  const [gameStarted, setGameStarted] = useState(false)
+
   const [currentMessage, setCurrentMessage] = useState<ChatMessage | null>(null)
+  const [activeThreadKey, setActiveThreadKey] = useState<string>('')
   const [typedText, setTypedText] = useState('')
   const [gameFinished, setGameFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
   const [messagesAnswered, setMessagesAnswered] = useState(0)
   const [totalPoints, setTotalPoints] = useState(0)
-  const [showingIncoming, setShowingIncoming] = useState(false)
   const [showingPenalty, setShowingPenalty] = useState(false)
-  const [chatHistory, setChatHistory] = useState<Array<{ type: 'incoming' | 'outgoing' | 'penalty'; message: ChatMessage; actualResponse?: string; fadeOut?: boolean }>>([])
+  const [threads, setThreads] = useState<Record<string, Thread>>({})
+
   const inputRef = useRef<HTMLInputElement>(null)
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const nextCharRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const penaltyTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const clearChatTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const handleStartGame = () => {
-    setShowInstructions(false)
-    setGameStarted(true)
-  }
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Start game automatically when user clicks start
-  useEffect(() => {
-    if (gameStarted) {
-      showNextMessage()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameStarted])
+  // Keep track whether user is "near bottom" in the chat area.
+  const stickToBottomRef = useRef(true)
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatHistory, showingIncoming, showingPenalty])
+  const threadList = useMemo(() => {
+    return Object.values(threads).sort((a, b) => a.key.localeCompare(b.key))
+  }, [threads])
 
-  useEffect(() => {
+  const activeThread = activeThreadKey ? threads[activeThreadKey] : undefined
+
+  /* ================= FOCUS: keep input focused ================= */
+
+  const forceFocus = useCallback(() => {
+    // don’t steal focus when game finished
     if (gameFinished) return
+    requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    })
+  }, [gameFinished])
 
-    const supabase = createClient()
+  // Re-focus after thread changes or current message changes (without scrolling).
+  useEffect(() => {
+    forceFocus()
+  }, [activeThreadKey, currentMessage, forceFocus])
 
-    const checkAllFinished = async () => {
-      const { data: actions } = await supabase
-        .from('player_actions')
-        .select('player_id, data')
-        .eq('session_id', sessionId)
-        .eq('action_type', 'chat_typing_finished')
+  // If user taps somewhere, immediately bounce focus back to input.
+  const handleContainerPointerDown = useCallback(() => {
+    forceFocus()
+  }, [forceFocus])
 
-      if (!actions) return
+  /* ================= SCROLL: only if user is near bottom ================= */
 
-      const finishedPlayers = new Set(actions.map((a: any) => a.player_id))
-      const allFinished = players.every((p) => finishedPlayers.has(p.id))
+  const updateStickToBottom = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const thresholdPx = 80
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottomRef.current = distanceFromBottom <= thresholdPx
+  }, [])
 
-      setAllPlayersFinished(allFinished)
-    }
+  const scrollToBottomIfSticky = useCallback(() => {
+    if (!stickToBottomRef.current) return
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    })
+  }, [])
 
-    checkAllFinished()
+  /* ================= TIMER ================= */
 
-    const channel = supabase
-      .channel(`chat-typing-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'player_actions',
-          filter: `session_id=eq.${sessionId}`,
-        },
-        () => {
-          checkAllFinished()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [sessionId, players, gameFinished])
-
-  // Define finishGame before the timer useEffect that uses it
   const finishGame = useCallback(async () => {
     setGameFinished(true)
 
-    const supabase = createClient()
-    await (supabase.from('player_actions') as any).insert({
+    if (players.length <= 1) {
+      setAllPlayersFinished(true)
+    }
+
+    const supabase = createClient() as SupabaseClient<Database>
+
+    const payload: PlayerActionInsert = {
       session_id: sessionId,
       player_id: playerId,
       puzzle_index: 0,
       action_type: 'chat_typing_finished',
-      data: {
-        totalTime: GAME_DURATION - timeLeft,
-        points: totalPoints,
-        messagesCompleted: messagesAnswered,
-      },
-    })
+      data: { points: totalPoints },
+    }
 
-    // Cleanup all timers
+    await (supabase.from('player_actions') as any).insert(payload as any)
+
     if (timerRef.current) clearInterval(timerRef.current)
     if (penaltyTimerRef.current) clearTimeout(penaltyTimerRef.current)
-    if (clearChatTimerRef.current) clearTimeout(clearChatTimerRef.current)
-  }, [sessionId, playerId, GAME_DURATION, timeLeft, totalPoints, messagesAnswered])
+  }, [players.length, sessionId, playerId, totalPoints])
 
   useEffect(() => {
-    if (gameFinished || timeLeft <= 0) return
+    if (gameFinished) return
 
     timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
+      setTimeLeft((t) => {
+        if (t <= 1) {
           finishGame()
           return 0
         }
-        return prev - 1
+        return t - 1
       })
     }, TIMER_INTERVAL_MS)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [gameFinished, timeLeft, finishGame])
+  }, [gameFinished, finishGame])
 
-  const getRandomMessage = useCallback(() => {
+  /* ================= AUTO SCROLL GHOST (horizontal) ================= */
+
+  useEffect(() => {
+    nextCharRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    })
+  }, [typedText])
+
+  /* ================= THREAD HELPERS ================= */
+
+  const ensureThread = useCallback((msg: ChatMessage) => {
+    setThreads((prev) => {
+      if (prev[msg.from]) return prev
+      return {
+        ...prev,
+        [msg.from]: {
+          key: msg.from,
+          avatar: msg.avatar,
+          items: [],
+        },
+      }
+    })
+  }, [])
+
+  const appendToThread = useCallback((threadKey: string, item: ThreadItem) => {
+    setThreads((prev) => {
+      const existing =
+        prev[threadKey] ?? { key: threadKey, avatar: '💬', items: [] }
+      return {
+        ...prev,
+        [threadKey]: {
+          ...existing,
+          items: [...existing.items, item],
+        },
+      }
+    })
+  }, [])
+
+  const replacePendingIncoming = useCallback((threadKey: string, msgId: number) => {
+    setThreads((prev) => {
+      const t = prev[threadKey]
+      if (!t) return prev
+      return {
+        ...prev,
+        [threadKey]: {
+          ...t,
+          items: t.items.map((it) =>
+            it.type === 'incoming' && it.pending && it.msg.id === msgId
+              ? { type: 'incoming', msg: it.msg, pending: false }
+              : it
+          ),
+        },
+      }
+    })
+  }, [])
+
+  /* ================= RANDOM / ROTATION ================= */
+
+  const lastSenderRef = useRef<string>('')
+
+  const getRandomMessageRotating = useCallback((): ChatMessage => {
+    if (CHAT_MESSAGES.length === 1) return CHAT_MESSAGES[0]
+
+    for (let tries = 0; tries < 8; tries++) {
+      const msg = CHAT_MESSAGES[Math.floor(Math.random() * CHAT_MESSAGES.length)]
+      if (msg.from !== lastSenderRef.current) return msg
+    }
     return CHAT_MESSAGES[Math.floor(Math.random() * CHAT_MESSAGES.length)]
   }, [])
 
+  /* ================= MESSAGE FLOW ================= */
+
   const showNextMessage = useCallback(() => {
-    // Trigger fade-out for old messages
-    setChatHistory((prev) => prev.map(item => ({ ...item, fadeOut: true })))
+    const msg = getRandomMessageRotating()
+    lastSenderRef.current = msg.from
 
-    // Clear old messages after fade-out
-    clearChatTimerRef.current = setTimeout(() => {
-      setChatHistory([])
-    }, FADE_OUT_DURATION_MS)
+    ensureThread(msg)
 
-    // Show new message
-    const newMessage = getRandomMessage()
-    setCurrentMessage(newMessage)
-    setShowingIncoming(true)
+    setActiveThreadKey(msg.from)
+    setCurrentMessage(msg)
     setTypedText('')
 
+    // pending incoming at bottom
+    appendToThread(msg.from, { type: 'incoming', msg, pending: true })
+    scrollToBottomIfSticky()
+    forceFocus()
+
+    // pending -> real
     setTimeout(() => {
-      setChatHistory([{ type: 'incoming', message: newMessage }])
-      setShowingIncoming(false)
-      setTimeout(() => inputRef.current?.focus(), FOCUS_INPUT_DELAY_MS)
+      replacePendingIncoming(msg.from, msg.id)
+      scrollToBottomIfSticky()
+      forceFocus()
     }, MESSAGE_DISPLAY_DELAY_MS)
-  }, [getRandomMessage])
+  }, [
+    appendToThread,
+    ensureThread,
+    forceFocus,
+    getRandomMessageRotating,
+    replacePendingIncoming,
+    scrollToBottomIfSticky,
+  ])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (showingIncoming || showingPenalty) return
-    setTypedText(e.target.value)
-  }
+  useEffect(() => {
+    showNextMessage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && typedText.trim()) {
-      checkAnswer()
-    }
-  }
+  /* ================= ANSWER ================= */
 
   const checkAnswer = async () => {
-    if (!currentMessage || showingPenalty) return
+    if (!currentMessage || gameFinished || showingPenalty) return
+    if (!activeThreadKey) return
 
-    const isCorrect = typedText.trim().toLowerCase() === currentMessage.requiredResponse.toLowerCase()
+    const required = currentMessage.requiredResponse
+    const correct = typedText.trim().toLowerCase() === required.toLowerCase()
 
-    if (!isCorrect) {
+    appendToThread(activeThreadKey, {
+      type: 'outgoing',
+      msg: currentMessage,
+      text: typedText,
+    })
+    scrollToBottomIfSticky()
+    forceFocus()
+
+    if (!correct) {
       setShowingPenalty(true)
 
-      setChatHistory((prev) => [
-        ...prev,
-        { type: 'outgoing', message: currentMessage, actualResponse: typedText },
-      ])
-
       setTimeout(() => {
-        setChatHistory((prev) => [
-          ...prev,
-          { type: 'penalty', message: currentMessage },
-        ])
-
-        setTimeLeft((prev) => Math.max(0, prev - PENALTY_TIME_SECONDS))
+        appendToThread(activeThreadKey, { type: 'penalty', msg: currentMessage })
+        scrollToBottomIfSticky()
+        setTimeLeft((t) => Math.max(0, t - PENALTY_TIME_SECONDS))
 
         penaltyTimerRef.current = setTimeout(() => {
           setShowingPenalty(false)
-          if (timeLeft > 0) {
-            showNextMessage()
-          }
+          if (!gameFinished && timeLeft > 0) showNextMessage()
         }, PENALTY_DURATION_MS)
       }, PENALTY_DISPLAY_DELAY_MS)
 
       return
     }
 
-    setChatHistory((prev) => [
-      ...prev,
-      { type: 'outgoing', message: currentMessage, actualResponse: typedText },
-    ])
+    setTotalPoints((p) => p + CORRECT_ANSWER_POINTS)
+    setMessagesAnswered((c) => c + 1)
 
-    const points = CORRECT_ANSWER_POINTS
-    setTotalPoints((prev) => prev + points)
-    setMessagesAnswered((prev) => prev + 1)
-
-    const supabase = createClient()
-    await (supabase.from('player_actions') as any).insert({
-      session_id: sessionId,
-      player_id: playerId,
-      puzzle_index: 0,
-      action_type: 'chat_message_sent',
-      data: {
-        messageId: currentMessage.id,
-        points,
-        correct: true,
-      },
-    })
-
-    setTimeout(() => showNextMessage(), NEXT_MESSAGE_DELAY_MS)
+    setTimeout(showNextMessage, NEXT_MESSAGE_DELAY_MS)
   }
 
-  // Show instructions screen before game starts
-  if (showInstructions) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4">💬</div>
-            <h2 className="text-4xl font-bold text-white mb-2">Chat Typing Race</h2>
-            <p className="text-gray-400">Antworte deinen Freunden so schnell wie möglich!</p>
-          </div>
+  /* ================= LEADERBOARD ================= */
 
-          {/* Instructions */}
-          <div className="bg-slate-700/50 rounded-xl p-6 mb-6 space-y-4">
-            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <span>📋</span> Spielregeln
-            </h3>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl flex-shrink-0">⏱️</div>
-                <div>
-                  <p className="text-white font-semibold">Zeit: {GAME_DURATION} Sekunden</p>
-                  <p className="text-gray-300 text-sm">Beantworte so viele Nachrichten wie möglich in der vorgegebenen Zeit</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl flex-shrink-0">✍️</div>
-                <div>
-                  <p className="text-white font-semibold">Exakt abtippen</p>
-                  <p className="text-gray-300 text-sm">Tippe die vorgegebene Antwort genau ab - achte auf Rechtschreibung!</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl flex-shrink-0">💯</div>
-                <div>
-                  <p className="text-white font-semibold">Punkte sammeln</p>
-                  <p className="text-gray-300 text-sm">Jede korrekte Antwort = {CORRECT_ANSWER_POINTS} Punkte</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl flex-shrink-0">⚠️</div>
-                <div>
-                  <p className="text-white font-semibold">Fehler kosten Zeit</p>
-                  <p className="text-gray-300 text-sm">Falsche Antworten = -{PENALTY_TIME_SECONDS} Sekunden Zeitstrafe</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="text-2xl flex-shrink-0">👻</div>
-                <div>
-                  <p className="text-white font-semibold">Ghost Text hilft dir</p>
-                  <p className="text-gray-300 text-sm">Die korrekte Antwort wird durchsichtig im Eingabefeld angezeigt</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tip */}
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-            <p className="text-blue-300 text-sm">
-              💡 <strong>Tipp:</strong> Schau dir den Ghost Text an und tippe schnell aber präzise.
-              Geschwindigkeit ist wichtig, aber Genauigkeit noch wichtiger!
-            </p>
-          </div>
-
-          {/* Players waiting */}
-          <div className="mb-6">
-            <p className="text-gray-400 text-center text-sm">
-              {players.length} Spieler {players.length === 1 ? 'ist' : 'sind'} bereit
-            </p>
-          </div>
-
-          {/* Start Button */}
-          <button
-            onClick={handleStartGame}
-            className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xl font-bold rounded-xl transition-all transform hover:scale-105 shadow-lg"
-          >
-            🚀 Spiel starten
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Show leaderboard only when all players finished
   if (allPlayersFinished) {
     return (
       <Leaderboard
@@ -554,160 +532,158 @@ export default function ChatTypingRaceWithLeaderboard({
     )
   }
 
-  // Show waiting screen if this player finished but others haven't
-  if (gameFinished && !allPlayersFinished) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl p-8 text-center">
-          <div className="text-6xl mb-6">⏳</div>
-          <h2 className="text-3xl font-bold text-white mb-4">Spiel beendet!</h2>
-          <p className="text-gray-300 mb-2">Du hast {messagesAnswered} Nachrichten beantwortet</p>
-          <p className="text-2xl font-bold text-blue-400 mb-6">🏆 {totalPoints} Punkte</p>
-          <div className="animate-pulse">
-            <p className="text-gray-400">Warte auf andere Spieler...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  /* ================= UI ================= */
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full h-[700px] bg-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="text-2xl">💬</div>
-            <div>
-              <h3 className="text-white font-bold">Silvester Nachrichten</h3>
-              <p className="text-blue-100 text-sm">{messagesAnswered} beantwortet</p>
+    <div
+      className="min-h-screen bg-slate-900 flex items-center justify-center p-2"
+      onPointerDown={handleContainerPointerDown}
+    >
+      <div className="w-full max-w-none sm:max-w-3xl h-[92vh] bg-slate-800 rounded-xl flex flex-col overflow-hidden">
+        {/* HEADER */}
+        <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 flex justify-between items-center">
+          <span className="text-white font-bold">💬 Chat Typing Race</span>
+          <div className="flex items-center gap-3">
+            <span className="text-white/90 font-semibold text-sm">🏆 {totalPoints}</span>
+            <span className="text-white font-bold">⏱ {timeLeft}s</span>
+          </div>
+        </div>
+
+        {/* THREAD INDICATOR (auto-switched) */}
+        <div className="border-b border-slate-700 px-2 py-2 overflow-x-auto">
+          <div className="flex gap-2 min-w-max pointer-events-none">
+            {threadList.length === 0 ? (
+              <div className="text-xs text-gray-400 px-2">Chats laden…</div>
+            ) : (
+              threadList.map((t) => {
+                const active = t.key === activeThreadKey
+                return (
+                  <div
+                    key={t.key}
+                    className={[
+                      'flex items-center gap-2 px-3 py-2 rounded-full border text-sm',
+                      active
+                        ? 'bg-white/15 border-white/20 text-white'
+                        : 'bg-white/5 border-white/10 text-gray-300 opacity-70',
+                    ].join(' ')}
+                  >
+                    <span className="text-lg">{t.avatar}</span>
+                    <span className="font-medium">{t.key}</span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* CHAT AREA (messages at bottom) */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={updateStickToBottom}
+          className="flex-1 overflow-y-auto px-3 py-4 bg-slate-900"
+        >
+          <div className="min-h-full flex flex-col justify-end">
+            <div className="space-y-3">
+              {(activeThread?.items ?? []).map((it, idx) => {
+                if (it.type === 'incoming') {
+                  return (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="text-3xl">{it.msg.avatar}</div>
+                      <div className="max-w-[85%]">
+                        <div className="text-xs text-gray-400 mb-1">
+                          {it.msg.from} · {it.msg.timestamp}
+                        </div>
+                        <div className="bg-slate-700 rounded-2xl rounded-tl-none px-3 py-2 text-white">
+                          {it.pending ? (
+                            <span className="inline-flex items-center gap-2 text-white/80">
+                              <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" />
+                              <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:120ms]" />
+                              <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce [animation-delay:240ms]" />
+                            </span>
+                          ) : (
+                            it.msg.message
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (it.type === 'penalty') {
+                  return (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="text-3xl">{it.msg.avatar}</div>
+                      <div className="max-w-[85%]">
+                        <div className="bg-red-600/80 border border-red-400 rounded-2xl rounded-tl-none px-3 py-2 text-white font-semibold">
+                          {it.msg.penaltyResponse ?? 'Falsch!'}
+                        </div>
+                        <div className="text-xs text-red-300 mt-1">
+                          ⚠️ -{PENALTY_TIME_SECONDS}s Zeitstrafe
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={idx} className="flex justify-end">
+                    <div className="max-w-[85%]">
+                      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl rounded-tr-none px-3 py-2 text-white font-mono break-words">
+                        {it.text}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1 text-right">✓ gesendet</div>
+                    </div>
+                  </div>
+                )
+              })}
+
+              <div ref={bottomRef} />
             </div>
           </div>
-          {!gameFinished && (
-            <div className={`text-white text-lg font-bold bg-white/20 px-4 py-2 rounded-full ${timeLeft <= 10 ? 'animate-pulse bg-red-500/40' : ''}`}>
-              ⏱️ {timeLeft}s
-            </div>
-          )}
         </div>
 
-        <div className="bg-slate-700 px-4 py-2 flex justify-between items-center border-b border-slate-600">
-          <div className="text-yellow-400 font-bold">🏆 {totalPoints} Punkte</div>
-          <div className="text-gray-400 text-sm">{messagesAnswered} Nachrichten</div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900">
-          {chatHistory.map((item, idx) => (
-            <div key={idx} className={item.fadeOut ? 'animate-fade-out' : ''}>
-              {item.type === 'incoming' ? (
-                <div className="flex items-start space-x-3 animate-slide-in">
-                  <div className="text-3xl">{item.message.avatar}</div>
-                  <div className="flex-1">
-                    <div className="flex items-baseline space-x-2 mb-1">
-                      <span className="text-white font-semibold text-sm">{item.message.from}</span>
-                      <span className="text-gray-500 text-xs">{item.message.timestamp}</span>
-                    </div>
-                    <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3 max-w-md">
-                      <p className="text-white">{item.message.message}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : item.type === 'penalty' ? (
-                <div className="flex items-start space-x-3 animate-slide-in">
-                  <div className="text-3xl">{item.message.avatar}</div>
-                  <div className="flex-1">
-                    <div className="bg-red-600/80 rounded-2xl rounded-tl-none p-3 max-w-md border-2 border-red-400">
-                      <p className="text-white font-bold">{item.message.penaltyResponse}</p>
-                    </div>
-                    <span className="text-red-400 text-xs mt-1">⚠️ -{PENALTY_TIME_SECONDS} Sekunden Strafe!</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start space-x-3 justify-end animate-slide-in">
-                  <div className="flex-1 flex flex-col items-end">
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl rounded-tr-none p-3 max-w-md">
-                      <p className="text-white">{item.actualResponse}</p>
-                    </div>
-                    <span className="text-gray-500 text-xs mt-1">✓ Gesendet</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          {showingIncoming && currentMessage && (
-            <div className="flex items-start space-x-3 animate-pulse">
-              <div className="text-3xl">{currentMessage.avatar}</div>
-              <div className="bg-slate-700 rounded-2xl rounded-tl-none p-3">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
-                </div>
+        {/* INPUT BAR (always visible, focus stays here) */}
+        {!gameFinished && currentMessage && (
+          <div className="bg-slate-800 border-t border-slate-700 p-3">
+            <div className="relative bg-slate-700 rounded-xl overflow-hidden">
+              {/* GHOST */}
+              <div className="absolute inset-0 px-4 py-3 pointer-events-none overflow-x-auto whitespace-nowrap">
+                <span className="font-mono text-white/30 text-base">
+                  {currentMessage.requiredResponse.split('').map((char, i) => (
+                    <span
+                      key={i}
+                      ref={i === typedText.length ? nextCharRef : null}
+                      className={i < typedText.length ? 'opacity-0' : ''}
+                    >
+                      {char}
+                    </span>
+                  ))}
+                </span>
               </div>
+
+              {/* INPUT */}
+              <input
+                ref={inputRef}
+                value={typedText}
+                onChange={(e) => setTypedText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && typedText.trim()) checkAnswer()
+                }}
+                onBlur={() => forceFocus()}
+                className="w-full bg-transparent px-4 py-3 font-mono text-white text-base outline-none relative z-10"
+                autoFocus
+                inputMode="text"
+                autoComplete="off"
+                spellCheck={false}
+              />
             </div>
-          )}
 
-          {gameFinished && (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">⏰</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Zeit abgelaufen!</h3>
-              <p className="text-gray-300">{messagesAnswered} Nachrichten beantwortet</p>
-              <p className="text-yellow-400 text-xl font-bold">{totalPoints} Punkte</p>
-              <p className="text-gray-400 text-sm mt-2">Warte auf die anderen Spieler...</p>
+            <div className="mt-2 flex justify-between text-xs text-gray-400">
+              <span>
+                Aktiver Chat: <span className="text-white/80">{activeThreadKey || '—'}</span>
+              </span>
+              <span>{messagesAnswered} beantwortet</span>
             </div>
-          )}
-
-          <div ref={chatEndRef} />
-        </div>
-
-        {!gameFinished && !showingIncoming && !showingPenalty && currentMessage && (
-          <div className="bg-slate-800 border-t border-slate-700 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-1 relative bg-slate-700 rounded-2xl">
-                {/* Ghost Text Overlay - positioned absolutely */}
-                <div className="absolute inset-0 px-4 py-4 pointer-events-none flex items-center overflow-hidden">
-                  <span className="text-lg font-mono whitespace-nowrap text-white opacity-30">
-                    {currentMessage.requiredResponse.split('').map((char, idx) => (
-                      <span
-                        key={idx}
-                        className={`transition-opacity duration-100 ${
-                          idx < typedText.length ? 'opacity-0' : ''
-                        }`}
-                      >
-                        {char}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-                {/* Actual Input - transparent background so ghost text shows through */}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={typedText}
-                  onChange={handleInputChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder=""
-                  className="w-full bg-transparent text-white text-lg px-4 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono relative z-10"
-                  autoFocus
-                  style={{ caretColor: 'white' }}
-                />
-              </div>
-              <button
-                onClick={checkAnswer}
-                disabled={!typedText.trim()}
-                className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all"
-              >
-                ➤
-              </button>
-            </div>
-            <p className="text-gray-400 text-xs mt-2 text-center">
-              💡 Tippe den Ghost-Text nach
-            </p>
-          </div>
-        )}
-
-        {(gameFinished || showingPenalty) && (
-          <div className="bg-slate-800 border-t border-slate-700 p-4 text-center">
-            <p className="text-gray-400">{gameFinished ? 'Spiel beendet...' : 'Penalty...'}</p>
           </div>
         )}
       </div>
