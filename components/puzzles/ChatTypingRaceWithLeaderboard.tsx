@@ -38,7 +38,7 @@ const TIMER_INTERVAL_MS = 1000
 const CHAT_MESSAGES: ChatMessage[] = [
   {
     id: 1,
-    from: 'Oma Inge',
+    from: 'Oma Ivy',
     avatar: '👵',
     message: 'Hallo Schatz! Ich wünsche dir einen guten Rutsch ins neue Jahr! 🎆',
     requiredResponse: 'Danke Oma, dir auch einen guten Rutsch!',
@@ -74,7 +74,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 5,
-    from: 'Schwester',
+    from: 'Schwester Mica',
     avatar: '👧',
     message: 'Happy New Year Bruderherz! 🎈',
     requiredResponse: 'Dir auch ein frohes neues Jahr!',
@@ -92,7 +92,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 7,
-    from: 'Opa Werner',
+    from: 'Opa Manu',
     avatar: '👴',
     message: 'Na Jung, alles Gute fürs neue Jahr! Bleib gesund! 🎆',
     requiredResponse: 'Danke Opa, du auch!',
@@ -101,7 +101,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 8,
-    from: 'Tante Helga',
+    from: 'Tante Jessi',
     avatar: '👩‍🦰',
     message: 'Liebes, ich wünsche dir nur das Beste für 2025! 💝',
     requiredResponse: 'Vielen Dank Tante Helga!',
@@ -109,17 +109,8 @@ const CHAT_MESSAGES: ChatMessage[] = [
     penaltyResponse: 'So eine Antwort hätte ich nicht erwartet... 😤',
   },
   {
-    id: 9,
-    from: 'Ex-Freundin',
-    avatar: '💔',
-    message: 'Hey... frohes neues Jahr... 🥺',
-    requiredResponse: 'Dir auch alles Gute!',
-    timestamp: '00:30',
-    penaltyResponse: 'Typisch. Kannst es einfach nicht. 😒',
-  },
-  {
-    id: 10,
-    from: 'Nachbar Klaus',
+    id: 0,
+    from: 'Nachbar Thorsten',
     avatar: '👨‍🦳',
     message: 'Guten Rutsch! Und bitte nicht so laut feiern! 😤',
     requiredResponse: 'Danke, wird leise bleiben!',
@@ -127,8 +118,8 @@ const CHAT_MESSAGES: ChatMessage[] = [
     penaltyResponse: 'ICH RUFE DIE POLIZEI! 🚨',
   },
   {
-    id: 11,
-    from: 'Cousin Tobias',
+    id: 10,
+    from: 'Cousin Marc',
     avatar: '🧑‍🎓',
     message: 'Ey Couseng! Frohes neues Jahr! Wann sehen wir uns mal wieder? 🤗',
     requiredResponse: 'Frohes Neues Tobi! Bald wieder!',
@@ -136,8 +127,8 @@ const CHAT_MESSAGES: ChatMessage[] = [
     penaltyResponse: 'Schreib halt irgendwas... 😑',
   },
   {
-    id: 12,
-    from: 'Arbeitskollegin Sarah',
+    id: 11,
+    from: 'Arbeitskollegin Madeline',
     avatar: '💼',
     message: 'Happy New Year! Lass uns 2025 rocken! 🚀',
     requiredResponse: 'Happy New Year Sarah!',
@@ -145,8 +136,8 @@ const CHAT_MESSAGES: ChatMessage[] = [
     penaltyResponse: 'Das war wohl nix... 🤦‍♀️',
   },
   {
-    id: 13,
-    from: 'Onkel Rudi',
+    id: 12,
+    from: 'Onkel Kurt',
     avatar: '👨‍🦲',
     message: 'Prost Neujahr! Komm mal wieder vorbei zum Grillen! 🍖',
     requiredResponse: 'Prost Onkel Rudi! Gerne!',
@@ -154,13 +145,22 @@ const CHAT_MESSAGES: ChatMessage[] = [
     penaltyResponse: 'Zu kompliziert für dich? 🙄',
   },
   {
+    id: 13,
+    from: 'Lena und Dave',
+    avatar: '👩🏻‍❤️‍👨🏻',
+    message: 'Frohes neues Jahr und nur das Beste für euch!',
+    requiredResponse: 'Ihr seid schon immer die Besten gewesen, euch ebenso!',
+    timestamp: '00:25',
+    penaltyResponse: 'Oookay, das hätte man auch anders sagen können.',
+  },
+  {
     id: 14,
-    from: 'Grundschulfreundin Lisa',
+    from: 'Grundschulfreundin Monique',
     avatar: '👱‍♀️',
     message: 'Hey! Lang nix gehört! Frohes neues Jahr! 💕',
     requiredResponse: 'Hey Lisa! Dir auch!',
     timestamp: '00:18',
-    penaltyResponse: 'Okay... ignorier mich halt... 😢',
+    penaltyResponse: 'Okay... ignorier mich doch lieber als das... 😢',
   },
   {
     id: 15,
@@ -173,7 +173,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 16,
-    from: 'Fitnesstrainer Mike',
+    from: 'Fitnesstrainer Adrian',
     avatar: '💪',
     message: 'Happy New Year! Neue Vorsätze? Gym morgen! 🏋️',
     requiredResponse: 'Happy New Year Mike!',
@@ -182,7 +182,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 17,
-    from: 'Vermieter Müller',
+    from: 'Vermieter Miro',
     avatar: '🏠',
     message: 'Guten Rutsch! Die Miete bitte pünktlich im neuen Jahr. 💰',
     requiredResponse: 'Guten Rutsch! Wird gemacht!',
@@ -191,7 +191,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 18,
-    from: 'WG-Mitbewohnerin Anna',
+    from: 'WG-Mitbewohnerin Marta',
     avatar: '👩‍🎤',
     message: 'HAPPY NEW YEAAAAR!!! Party in 10 min!!! 🎉🥳',
     requiredResponse: 'Bin gleich da!',
@@ -200,7 +200,7 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 19,
-    from: 'Oma Frieda',
+    from: 'Oma Marlene',
     avatar: '👵🏻',
     message: 'Mein Schatz! Hab Stollen gebacken! Komm vorbei! 🍰',
     requiredResponse: 'Danke Oma! Komme bald!',
@@ -209,10 +209,10 @@ const CHAT_MESSAGES: ChatMessage[] = [
   },
   {
     id: 20,
-    from: 'Kumpel Max',
+    from: 'Freundin Johanna',
     avatar: '🤪',
-    message: 'BRUUUUUDI! Frohes Neues! Raketen sind gezündet! 🎆🚀',
-    requiredResponse: 'BRUUUUDI! Frohes Neues!',
+    message: 'Digga! Frohes Neues! Raketen sind gezündet! 🎆🚀',
+    requiredResponse: 'Frohes Neues, Diggi',
     timestamp: '00:03',
     penaltyResponse: 'Was is los mit dir alter?? 🤨',
   },
