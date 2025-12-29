@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { createPlayerData } from '@/lib/game/session'
 import type { Database } from '@/types/database'
 import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
+import AvatarPicker from '@/components/AvatarPicker'
 
 type GameSession = Database['public']['Tables']['game_sessions']['Row'] & {
   rooms: Database['public']['Tables']['rooms']['Row'] | null
@@ -16,6 +17,7 @@ interface JoinSessionFormProps {
 
 export default function JoinSessionForm({ session }: JoinSessionFormProps) {
   const [playerName, setPlayerName] = useState('')
+  const [selectedAvatar, setSelectedAvatar] = useState('😀')
   const [isJoining, setIsJoining] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,7 @@ export default function JoinSessionForm({ session }: JoinSessionFormProps) {
       const playerData = createPlayerData({
         sessionId: session.id,
         name: playerName.trim(),
+        avatar: selectedAvatar,
       })
       const { data: player, error: playerError } = await supabase
         .from('players')
@@ -106,6 +109,8 @@ export default function JoinSessionForm({ session }: JoinSessionFormProps) {
                 autoFocus
               />
             </div>
+
+            <AvatarPicker selectedAvatar={selectedAvatar} onSelect={setSelectedAvatar} />
 
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">

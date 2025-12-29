@@ -48,12 +48,14 @@ export function createSessionData(params: CreateSessionParams) {
 export interface CreatePlayerParams {
   sessionId: string
   name: string
+  avatar?: string
 }
 
 export function createPlayerData(params: CreatePlayerParams) {
   return {
     session_id: params.sessionId,
     name: params.name,
+    avatar: params.avatar || '😀',
     color: generatePlayerColor(),
     is_connected: true,
   }
