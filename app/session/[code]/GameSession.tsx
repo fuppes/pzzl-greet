@@ -55,25 +55,31 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       return
     }
 
-    // Load players
     const loadPlayers = async () => {
-      const { data } = await supabase
+      const { data: playersData, error } = await supabase
         .from('players')
         .select('*')
         .eq('session_id', session.id)
         .order('joined_at', { ascending: true })
-
-      if (data) {
-        setPlayers(data)
-        const player = data.find((p: Player) => p.id === playerId)
-        if (player) {
-          setCurrentPlayer(player)
-        } else {
-          // Player ID in localStorage but not in this session - redirect to join
-          window.location.href = `/join/${session.session_code}`
-          return
-        }
+        .returns<Player[]>()
+    
+      if (error) {
+        logError(error, 'GameSession: loadPlayers')
+        setIsLoading(false)
+        return
       }
+    
+      const list = playersData ?? []
+      setPlayers(list)
+    
+      const player = list.find(p => p.id === playerId)
+      if (player) {
+        setCurrentPlayer(player)
+      } else {
+        window.location.href = `/join/${session.session_code}`
+        return
+      }
+    
       setIsLoading(false)
     }
 
@@ -108,30 +114,39 @@ export default function GameSession({ session: initialSession }: GameSessionProp
           filter: `id=eq.${session.id}`,
         },
         (payload) => {
-          setSession(prev => ({ ...prev, ...payload.new }))
+          setSession(prev => ({ ...prev, ...(payload.new as Partial<GameSession>) }))
         }
       )
       .subscribe()
 
     // Polling fallback - check session status every 2 seconds
     const pollInterval = setInterval(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('game_sessions')
         .select('status, current_puzzle_index, started_at, completed_at')
         .eq('id', session.id)
-        .single()
-
+        .single<
+          Pick<
+            GameSession,
+            'status' | 'current_puzzle_index' | 'started_at' | 'completed_at'
+          >
+        >()
+    
+      if (error) return
+    
       if (data) {
         setSession(prev => ({ ...prev, ...data }))
       }
     }, 2000)
+
 
     return () => {
       supabase.removeChannel(playersChannel)
       supabase.removeChannel(sessionChannel)
       clearInterval(pollInterval)
     }
-  }, [session.id])
+  }, [session.id, session.session_code])
+
 
   const handleStartGame = async () => {
     // Update local state immediately for instant feedback
