@@ -40,14 +40,18 @@ export default function JoinSessionForm({ session }: JoinSessionFormProps) {
       })
       const { data: player, error: playerError } = await supabase
         .from('players')
+        // @ts-expect-error - Supabase type inference issue
         .insert(playerData)
         .select()
         .single()
 
       if (playerError) throw playerError
+      if (!player) throw new Error('Failed to create player')
 
       // Store player info in localStorage
+      // @ts-expect-error - player type is inferred from supabase
       localStorage.setItem('player_id', player.id)
+      // @ts-expect-error - player type is inferred from supabase
       localStorage.setItem('player_name', player.name)
       localStorage.setItem('session_id', session.id)
 

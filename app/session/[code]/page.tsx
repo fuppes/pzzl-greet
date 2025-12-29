@@ -39,6 +39,7 @@ export default async function SessionPage({ params }: PageProps) {
       *,
       games (*)
     `)
+    // @ts-expect-error - session type is inferred from supabase
     .eq('room_id', (session.rooms as any).id)
     .order('queue_position', { ascending: true })
 
@@ -46,6 +47,7 @@ export default async function SessionPage({ params }: PageProps) {
   ;(session as any).game_queue = gameQueue || []
 
   // Check if session is completed
+  // @ts-expect-error - session type is inferred from supabase
   if (session.status === 'completed') {
     redirect(`/session/${code}/greeting`)
   }

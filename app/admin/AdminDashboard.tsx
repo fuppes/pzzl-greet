@@ -117,6 +117,7 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
       const supabase = createClient()
       const { error } = await supabase
         .from('rooms')
+        // @ts-expect-error - Supabase type inference issue
         .update({ is_active: !room.is_active })
         .eq('id', room.id)
 
@@ -125,6 +126,27 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
     } catch (error) {
       logError(error as Error, 'handleToggleActive')
       alert(getUserFriendlyMessage(error as Error))
+    }
+  }
+
+  const handleShareRoom = async (room: Room) => {
+    const url = `${window.location.origin}/room/${room.slug}`
+    try {
+      await navigator.clipboard.writeText(url)
+      alert(`Link wurde kopiert: ${url}`)
+    } catch (error) {
+      // Fallback if clipboard API is not available
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        alert(`Link wurde kopiert: ${url}`)
+      } catch (err) {
+        alert(`Link: ${url}`)
+      }
+      document.body.removeChild(textArea)
     }
   }
 
@@ -297,6 +319,13 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
 
                     {/* Actions */}
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => handleShareRoom(room)}
+                        className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-300 rounded-lg transition-all text-sm"
+                        title="Link kopieren"
+                      >
+                        📤 Teilen
+                      </button>
                       <button
                         onClick={() => setEditingRoom(room)}
                         className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all text-sm"
@@ -522,6 +551,7 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
         // Update existing room
         const { error } = await supabase
           .from('rooms')
+          // @ts-expect-error - Supabase type inference issue
           .update(roomData)
           .eq('id', room.id)
           .select()
@@ -536,6 +566,7 @@ function RoomForm({ room, onClose, onSuccess }: RoomFormProps) {
 
         const { error } = await supabase
           .from('rooms')
+          // @ts-expect-error - Supabase type inference issue
           .insert(newRoomData)
           .select()
 

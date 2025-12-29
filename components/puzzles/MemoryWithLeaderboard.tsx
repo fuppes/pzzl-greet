@@ -19,6 +19,7 @@ interface MemoryWithLeaderboardProps {
   puzzleIndex?: number
   totalGames?: number
   roomId?: string
+  nextGameName?: string
 }
 
 export default function MemoryWithLeaderboard({
@@ -31,6 +32,7 @@ export default function MemoryWithLeaderboard({
   puzzleIndex = 0,
   totalGames = 3,
   roomId,
+  nextGameName,
 }: MemoryWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -116,6 +118,7 @@ export default function MemoryWithLeaderboard({
         onContinue={onContinue}
         totalGames={totalGames}
         roomId={roomId}
+        nextGameName={nextGameName}
       />
     )
   }

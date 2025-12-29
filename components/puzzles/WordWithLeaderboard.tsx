@@ -19,6 +19,7 @@ interface WordWithLeaderboardProps {
   puzzleIndex?: number
   totalGames?: number
   roomId?: string
+  nextGameName?: string
 }
 
 export default function WordWithLeaderboard({
@@ -31,6 +32,7 @@ export default function WordWithLeaderboard({
   puzzleIndex = 0,
   totalGames = 3,
   roomId,
+  nextGameName,
 }: WordWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -111,6 +113,7 @@ export default function WordWithLeaderboard({
         onContinue={onContinue}
         totalGames={totalGames}
         roomId={roomId}
+        nextGameName={nextGameName}
       />
     )
   }

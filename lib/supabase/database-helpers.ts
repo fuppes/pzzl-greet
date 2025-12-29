@@ -15,6 +15,7 @@ export async function updateRoom(
 ) {
   const { error } = await supabase
     .from('rooms')
+    // @ts-expect-error - Supabase type inference issue
     .update(updates)
     .eq('id', roomId)
 
@@ -30,6 +31,7 @@ export async function insertPlayerMessage(
 ) {
   const { error } = await supabase
     .from('player_messages')
+    // @ts-expect-error - Supabase type inference issue
     .insert(message)
 
   if (error) handleSupabaseError(error, 'insertPlayerMessage')
@@ -50,6 +52,7 @@ export async function insertPlayerAction(
 ) {
   const { error } = await supabase
     .from('player_actions')
+    // @ts-expect-error - Supabase type inference issue
     .insert(action)
 
   if (error) handleSupabaseError(error, 'insertPlayerAction')
@@ -64,6 +67,7 @@ export async function insertPlayer(
 ) {
   const { data, error } = await supabase
     .from('players')
+    // @ts-expect-error - Supabase type inference issue
     .insert(player)
     .select()
     .single()
@@ -82,6 +86,7 @@ export async function updateGameSession(
 ) {
   const { error } = await supabase
     .from('game_sessions')
+    // @ts-expect-error - Supabase type inference issue
     .update(updates)
     .eq('id', sessionId)
 

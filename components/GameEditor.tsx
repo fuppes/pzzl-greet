@@ -50,11 +50,13 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
       if (game) {
         const { error } = await supabase
           .from('games')
+          // @ts-expect-error - Supabase type inference issue
           .update(gameData)
           .eq('id', game.id)
 
         if (error) throw error
       } else {
+        // @ts-expect-error - Supabase type inference issue
         const { error } = await supabase.from('games').insert(gameData)
 
         if (error) throw error

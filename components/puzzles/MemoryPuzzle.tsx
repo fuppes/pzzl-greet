@@ -28,6 +28,7 @@ export default function MemoryPuzzle({
   const [matchedPairs, setMatchedPairs] = useState<string[]>([])
   const [isChecking, setIsChecking] = useState(false)
   const [moves, setMoves] = useState(0)
+  const [score, setScore] = useState(0)
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   // Initialize cards
@@ -109,6 +110,7 @@ export default function MemoryPuzzle({
         if (card1 && card2 && card1.pairId === card2.pairId) {
           // Match found! +10 points
           setMatchedPairs((prev) => [...prev, card1.pairId])
+          setScore((prev) => prev + 10)
           setShowSuccessAnimation(true)
 
           // Record match in database with points
@@ -129,6 +131,7 @@ export default function MemoryPuzzle({
           setTimeout(() => setShowSuccessAnimation(false), 2000)
         } else {
           // No match - record penalty (-2 points)
+          setScore((prev) => prev - 2)
           // @ts-ignore
           await supabase.from('player_actions').insert({
             session_id: sessionId,
@@ -179,6 +182,10 @@ export default function MemoryPuzzle({
             <span className="text-gray-400">Züge:</span>{' '}
             <span className="text-white font-semibold">{moves}</span>
           </div>
+          <div className="px-4 py-2 bg-white/10 rounded-lg">
+            <span className="text-gray-400">Punkte:</span>{' '}
+            <span className="text-white font-semibold">{score}</span>
+          </div>
         </div>
       </div>
 
@@ -207,7 +214,7 @@ export default function MemoryPuzzle({
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm text-center space-y-4">
           <div className="text-6xl">🎉</div>
           <h3 className="text-2xl font-bold text-white">Alle Paare gefunden!</h3>
-          <p className="text-gray-400">Ihr habt {moves} Züge gebraucht</p>
+          <p className="text-gray-400">Ihr habt {moves} Züge gebraucht und {score} Punkte erreicht</p>
           <button
             onClick={onComplete}
             className="mt-4 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"

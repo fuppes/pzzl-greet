@@ -38,6 +38,11 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   const gameQueue = (session as any).game_queue || []
   const totalGames = gameQueue.length
 
+  // Get next game name
+  const nextGameIndex = session.current_puzzle_index + 1
+  const nextGame = nextGameIndex < gameQueue.length ? gameQueue[nextGameIndex] : null
+  const nextGameName = nextGame ? (nextGame.games as any)?.name : undefined
+
   useEffect(() => {
     const supabase = createClient()
 
@@ -387,10 +392,13 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                   <ChatTypingRaceWithLeaderboard
                     sessionId={session.id}
                     playerId={currentPlayer.id}
-                    players={players}
+                    players={players as any}
                     config={game.config}
                     isHost={isHost}
                     onContinue={handlePuzzleComplete}
+                    totalGames={totalGames}
+                    puzzleIndex={session.current_puzzle_index}
+                    nextGameName={nextGameName}
                   />
                 )
               }

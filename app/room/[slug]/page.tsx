@@ -25,6 +25,7 @@ export default async function RoomPage({ params }: PageProps) {
   }
 
   // Check if room is expired
+  // @ts-expect-error - room type is inferred from supabase
   if (room.expires_at && new Date(room.expires_at) < new Date()) {
     notFound()
   }

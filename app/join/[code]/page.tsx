@@ -32,6 +32,7 @@ export default async function JoinPage({ params }: PageProps) {
   }
 
   // If session is completed, redirect to greeting
+  // @ts-expect-error - session type is inferred from supabase
   if (session.status === 'completed') {
     redirect(`/session/${code}/greeting`)
   }

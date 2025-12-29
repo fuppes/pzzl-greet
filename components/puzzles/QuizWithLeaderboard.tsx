@@ -19,6 +19,7 @@ interface QuizWithLeaderboardProps {
   totalGames?: number
   puzzleIndex?: number
   roomId?: string
+  nextGameName?: string
 }
 
 export default function QuizWithLeaderboard({
@@ -31,6 +32,7 @@ export default function QuizWithLeaderboard({
   totalGames = 3,
   puzzleIndex = 0,
   roomId,
+  nextGameName,
 }: QuizWithLeaderboardProps) {
   const [isFinished, setIsFinished] = useState(false)
   const [allPlayersFinished, setAllPlayersFinished] = useState(false)
@@ -113,6 +115,7 @@ export default function QuizWithLeaderboard({
         onContinue={onContinue}
         totalGames={totalGames}
         roomId={roomId}
+        nextGameName={nextGameName}
       />
     )
   }

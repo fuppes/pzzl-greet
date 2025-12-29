@@ -66,9 +66,9 @@ export default function VideoUpload({
         .getPublicUrl(filePath)
 
       // Update room with video URL
-      // @ts-ignore
       const { error: updateError } = await supabase
         .from('rooms')
+        // @ts-expect-error - Supabase type inference issue
         .update({ video_url: publicUrl })
         .eq('id', roomId)
 
@@ -103,9 +103,9 @@ export default function VideoUpload({
       await supabase.storage.from('room-videos').remove([path])
 
       // Remove from database
-      // @ts-ignore
       const { error } = await supabase
         .from('rooms')
+        // @ts-expect-error - Supabase type inference issue
         .update({ video_url: null })
         .eq('id', roomId)
 

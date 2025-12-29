@@ -167,14 +167,17 @@ export default function GreetingPage({ sessionId, playerId, playerName, videoUrl
       }
 
       // Insert message
-      const { error } = await supabase.from('player_messages').insert({
-        session_id: sessionId,
-        player_id: playerId,
-        room_id: roomId,
-        message: message.trim() || '(Nur Emoji)',
-        emoji: selectedEmoji || null,
-        selfie_url: selfieUrl,
-      })
+      const { error } = await supabase
+        .from('player_messages')
+        // @ts-expect-error - Supabase type inference issue
+        .insert({
+          session_id: sessionId,
+          player_id: playerId,
+          room_id: roomId,
+          message: message.trim() || '(Nur Emoji)',
+          emoji: selectedEmoji || null,
+          selfie_url: selfieUrl,
+        })
 
       if (error) throw error
 

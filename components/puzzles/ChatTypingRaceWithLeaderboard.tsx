@@ -222,6 +222,9 @@ export default function ChatTypingRaceWithLeaderboard({
   config,
   isHost,
   onContinue,
+  totalGames,
+  puzzleIndex,
+  nextGameName,
 }: {
   sessionId: string
   players: Player[]
@@ -229,8 +232,13 @@ export default function ChatTypingRaceWithLeaderboard({
   config: ChatTypingConfig
   isHost: boolean
   onContinue?: () => void
+  totalGames?: number
+  puzzleIndex?: number
+  nextGameName?: string
 }) {
   const GAME_DURATION = config.duration || 60
+  const [showInstructions, setShowInstructions] = useState(true)
+  const [gameStarted, setGameStarted] = useState(false)
   const [currentMessage, setCurrentMessage] = useState<ChatMessage | null>(null)
   const [typedText, setTypedText] = useState('')
   const [gameFinished, setGameFinished] = useState(false)
@@ -247,11 +255,18 @@ export default function ChatTypingRaceWithLeaderboard({
   const penaltyTimerRef = useRef<NodeJS.Timeout | null>(null)
   const clearChatTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Start game automatically
+  const handleStartGame = () => {
+    setShowInstructions(false)
+    setGameStarted(true)
+  }
+
+  // Start game automatically when user clicks start
   useEffect(() => {
-    showNextMessage()
+    if (gameStarted) {
+      showNextMessage()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [gameStarted])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -299,6 +314,29 @@ export default function ChatTypingRaceWithLeaderboard({
       supabase.removeChannel(channel)
     }
   }, [sessionId, players, gameFinished])
+
+  // Define finishGame before the timer useEffect that uses it
+  const finishGame = useCallback(async () => {
+    setGameFinished(true)
+
+    const supabase = createClient()
+    await (supabase.from('player_actions') as any).insert({
+      session_id: sessionId,
+      player_id: playerId,
+      puzzle_index: 0,
+      action_type: 'chat_typing_finished',
+      data: {
+        totalTime: GAME_DURATION - timeLeft,
+        points: totalPoints,
+        messagesCompleted: messagesAnswered,
+      },
+    })
+
+    // Cleanup all timers
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (penaltyTimerRef.current) clearTimeout(penaltyTimerRef.current)
+    if (clearChatTimerRef.current) clearTimeout(clearChatTimerRef.current)
+  }, [sessionId, playerId, GAME_DURATION, timeLeft, totalPoints, messagesAnswered])
 
   useEffect(() => {
     if (gameFinished || timeLeft <= 0) return
@@ -412,42 +450,124 @@ export default function ChatTypingRaceWithLeaderboard({
     setTimeout(() => showNextMessage(), NEXT_MESSAGE_DELAY_MS)
   }
 
-  const finishGame = useCallback(async () => {
-    setGameFinished(true)
+  // Show instructions screen before game starts
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="text-6xl mb-4">💬</div>
+            <h2 className="text-4xl font-bold text-white mb-2">Chat Typing Race</h2>
+            <p className="text-gray-400">Antworte deinen Freunden so schnell wie möglich!</p>
+          </div>
 
-    const supabase = createClient()
-    await (supabase.from('player_actions') as any).insert({
-      session_id: sessionId,
-      player_id: playerId,
-      puzzle_index: 0,
-      action_type: 'chat_typing_finished',
-      data: {
-        totalTime: GAME_DURATION - timeLeft,
-        points: totalPoints,
-        messagesCompleted: messagesAnswered,
-      },
-    })
+          {/* Instructions */}
+          <div className="bg-slate-700/50 rounded-xl p-6 mb-6 space-y-4">
+            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span>📋</span> Spielregeln
+            </h3>
 
-    // Cleanup all timers
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (penaltyTimerRef.current) clearTimeout(penaltyTimerRef.current)
-    if (clearChatTimerRef.current) clearTimeout(clearChatTimerRef.current)
-  }, [sessionId, playerId, GAME_DURATION, timeLeft, totalPoints, messagesAnswered])
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl flex-shrink-0">⏱️</div>
+                <div>
+                  <p className="text-white font-semibold">Zeit: {GAME_DURATION} Sekunden</p>
+                  <p className="text-gray-300 text-sm">Beantworte so viele Nachrichten wie möglich in der vorgegebenen Zeit</p>
+                </div>
+              </div>
 
-  // Show leaderboard when:
-  // 1. All players finished OR
-  // 2. This player finished (show leaderboard while waiting for others)
-  if (gameFinished || allPlayersFinished) {
+              <div className="flex items-start gap-3">
+                <div className="text-2xl flex-shrink-0">✍️</div>
+                <div>
+                  <p className="text-white font-semibold">Exakt abtippen</p>
+                  <p className="text-gray-300 text-sm">Tippe die vorgegebene Antwort genau ab - achte auf Rechtschreibung!</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="text-2xl flex-shrink-0">💯</div>
+                <div>
+                  <p className="text-white font-semibold">Punkte sammeln</p>
+                  <p className="text-gray-300 text-sm">Jede korrekte Antwort = {CORRECT_ANSWER_POINTS} Punkte</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="text-2xl flex-shrink-0">⚠️</div>
+                <div>
+                  <p className="text-white font-semibold">Fehler kosten Zeit</p>
+                  <p className="text-gray-300 text-sm">Falsche Antworten = -{PENALTY_TIME_SECONDS} Sekunden Zeitstrafe</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="text-2xl flex-shrink-0">👻</div>
+                <div>
+                  <p className="text-white font-semibold">Ghost Text hilft dir</p>
+                  <p className="text-gray-300 text-sm">Die korrekte Antwort wird durchsichtig im Eingabefeld angezeigt</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tip */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+            <p className="text-blue-300 text-sm">
+              💡 <strong>Tipp:</strong> Schau dir den Ghost Text an und tippe schnell aber präzise.
+              Geschwindigkeit ist wichtig, aber Genauigkeit noch wichtiger!
+            </p>
+          </div>
+
+          {/* Players waiting */}
+          <div className="mb-6">
+            <p className="text-gray-400 text-center text-sm">
+              {players.length} Spieler {players.length === 1 ? 'ist' : 'sind'} bereit
+            </p>
+          </div>
+
+          {/* Start Button */}
+          <button
+            onClick={handleStartGame}
+            className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xl font-bold rounded-xl transition-all transform hover:scale-105 shadow-lg"
+          >
+            🚀 Spiel starten
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show leaderboard only when all players finished
+  if (allPlayersFinished) {
     return (
       <Leaderboard
         sessionId={sessionId}
-        players={players}
-        playerId={playerId}
+        players={players as any}
+        currentPlayerId={playerId}
         isHost={isHost}
         onContinue={onContinue}
-        puzzleIndex={0}
-        totalGames={1}
+        puzzleIndex={puzzleIndex || 0}
+        totalGames={totalGames || 1}
+        nextGameName={nextGameName}
       />
+    )
+  }
+
+  // Show waiting screen if this player finished but others haven't
+  if (gameFinished && !allPlayersFinished) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl p-8 text-center">
+          <div className="text-6xl mb-6">⏳</div>
+          <h2 className="text-3xl font-bold text-white mb-4">Spiel beendet!</h2>
+          <p className="text-gray-300 mb-2">Du hast {messagesAnswered} Nachrichten beantwortet</p>
+          <p className="text-2xl font-bold text-blue-400 mb-6">🏆 {totalPoints} Punkte</p>
+          <div className="animate-pulse">
+            <p className="text-gray-400">Warte auf andere Spieler...</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -497,7 +617,7 @@ export default function ChatTypingRaceWithLeaderboard({
                     <div className="bg-red-600/80 rounded-2xl rounded-tl-none p-3 max-w-md border-2 border-red-400">
                       <p className="text-white font-bold">{item.message.penaltyResponse}</p>
                     </div>
-                    <span className="text-red-400 text-xs mt-1">⚠️ -{PENALTY_TIME} Sekunden Strafe!</span>
+                    <span className="text-red-400 text-xs mt-1">⚠️ -{PENALTY_TIME_SECONDS} Sekunden Strafe!</span>
                   </div>
                 </div>
               ) : (

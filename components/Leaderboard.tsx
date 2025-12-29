@@ -24,6 +24,7 @@ interface LeaderboardProps {
   onContinue?: () => void
   totalGames: number
   roomId?: string
+  nextGameName?: string
 }
 
 export default function Leaderboard({
@@ -35,6 +36,7 @@ export default function Leaderboard({
   onContinue,
   totalGames,
   roomId,
+  nextGameName,
 }: LeaderboardProps) {
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -128,13 +130,16 @@ export default function Leaderboard({
 
     const supabase = createClient()
 
-    const { error } = await supabase.from('player_messages').insert({
-      session_id: sessionId,
-      player_id: currentPlayerId,
-      room_id: roomId,
-      message: message.trim() || '(Nur Emoji)',
-      emoji: selectedEmoji || null,
-    })
+    const { error } = await supabase
+      .from('player_messages')
+      // @ts-expect-error - Supabase type inference issue
+      .insert({
+        session_id: sessionId,
+        player_id: currentPlayerId,
+        room_id: roomId,
+        message: message.trim() || '(Nur Emoji)',
+        emoji: selectedEmoji || null,
+      })
 
     if (error) {
       logError(error, 'Leaderboard: sendMessage')
@@ -246,6 +251,14 @@ export default function Leaderboard({
         </div>
       </div>
 
+      {/* Next Game Preview */}
+      {allFinished && nextGameName && puzzleIndex < totalGames - 1 && (
+        <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-2 border-purple-500/50 rounded-xl p-6 text-center">
+          <p className="text-gray-300 mb-2">Als Nächstes</p>
+          <p className="text-2xl font-bold text-white">{nextGameName}</p>
+        </div>
+      )}
+
       {/* Continue Button (Host only, when all finished) */}
       {allFinished && isHost && onContinue && (
         <button
@@ -254,7 +267,7 @@ export default function Leaderboard({
           }}
           className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"
         >
-          {puzzleIndex === totalGames - 1 ? 'Zur Bestenliste' : 'Weiter zum nächsten Spiel'}
+          {puzzleIndex === totalGames - 1 ? 'Zur Bestenliste' : `Weiter${nextGameName ? `: ${nextGameName}` : ''}`}
         </button>
       )}
 
