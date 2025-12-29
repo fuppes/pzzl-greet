@@ -49,6 +49,12 @@ export default function GameSession({ session: initialSession }: GameSessionProp
     // Get current player from localStorage
     const playerId = localStorage.getItem('player_id')
 
+    // If no player ID, redirect to join page
+    if (!playerId) {
+      window.location.href = `/join/${session.session_code}`
+      return
+    }
+
     // Load players
     const loadPlayers = async () => {
       const { data } = await supabase
@@ -60,7 +66,13 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       if (data) {
         setPlayers(data)
         const player = data.find((p: Player) => p.id === playerId)
-        if (player) setCurrentPlayer(player)
+        if (player) {
+          setCurrentPlayer(player)
+        } else {
+          // Player ID in localStorage but not in this session - redirect to join
+          window.location.href = `/join/${session.session_code}`
+          return
+        }
       }
       setIsLoading(false)
     }
@@ -289,7 +301,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                 </h3>
                 <div className="bg-white p-4 rounded-lg">
                   <QRCodeSVG
-                    value={typeof window !== 'undefined' ? window.location.href : ''}
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/join/${session.session_code}` : ''}
                     size={180}
                     level="H"
                   />
