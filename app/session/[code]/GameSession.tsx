@@ -113,9 +113,23 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       )
       .subscribe()
 
+    // Polling fallback - check session status every 2 seconds
+    const pollInterval = setInterval(async () => {
+      const { data } = await supabase
+        .from('game_sessions')
+        .select('status, current_puzzle_index, started_at, completed_at')
+        .eq('id', session.id)
+        .single()
+
+      if (data) {
+        setSession(prev => ({ ...prev, ...data }))
+      }
+    }, 2000)
+
     return () => {
       supabase.removeChannel(playersChannel)
       supabase.removeChannel(sessionChannel)
+      clearInterval(pollInterval)
     }
   }, [session.id])
 
