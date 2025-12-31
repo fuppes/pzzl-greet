@@ -257,6 +257,7 @@ export default function ChatTypingRaceWithLeaderboard({
   nextGameName?: string
 }) {
   const GAME_DURATION = config.duration || 60
+  const [showInstructions, setShowInstructions] = useState(true)
 
   const [currentMessage, setCurrentMessage] = useState<ChatMessage | null>(null)
   const [activeThreadKey, setActiveThreadKey] = useState<string>('')
@@ -471,9 +472,10 @@ export default function ChatTypingRaceWithLeaderboard({
   ])
 
   useEffect(() => {
-    showNextMessage()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!showInstructions) {
+      showNextMessage()
+    }
+  }, [showInstructions, showNextMessage])
 
   /* ================= ANSWER ================= */
 
@@ -529,6 +531,58 @@ export default function ChatTypingRaceWithLeaderboard({
         totalGames={totalGames || 1}
         nextGameName={nextGameName}
       />
+    )
+  }
+
+  /* ================= INSTRUCTIONS SCREEN ================= */
+
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-xl bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-3xl">💬</span>
+            <div>
+              <h1 className="text-white text-xl font-bold">Chat Typing Race</h1>
+              <p className="text-slate-300 text-sm">
+                Tippe Antworten so schnell & exakt wie möglich.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 mb-5">
+            <p className="text-slate-200">
+              Du bekommst Nachrichten in wechselnden Chats. Tippe die <span className="font-semibold">vorgegebene</span>{' '}
+              Antwort und drücke <span className="font-semibold">Enter</span>.
+            </p>
+
+            <ul className="text-slate-300 text-sm space-y-2 mt-3 list-disc pl-5">
+              <li>
+                ⏱ Zeit: <span className="text-white/90 font-semibold">{GAME_DURATION}s</span>
+              </li>
+              <li>
+                ✅ Richtige Antwort: <span className="text-white/90 font-semibold">+{CORRECT_ANSWER_POINTS}</span> Punkte
+              </li>
+              <li>
+                ❌ Falsch: <span className="text-white/90 font-semibold">-{PENALTY_TIME_SECONDS}s</span> Zeitstrafe
+              </li>
+              <li>Der aktive Chat wird automatisch gewechselt.</li>
+              <li>Groß-/Kleinschreibung ist egal, der Rest muss matchen.</li>
+            </ul>
+          </div>
+
+          <button
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl hover:opacity-95 active:opacity-90"
+            onClick={() => setShowInstructions(false)}
+          >
+            Spiel starten ▶
+          </button>
+
+          <p className="text-xs text-slate-400 mt-3">
+            Tipp: Klick irgendwo rein – das Input bleibt während des Spiels automatisch fokussiert.
+          </p>
+        </div>
+      </div>
     )
   }
 

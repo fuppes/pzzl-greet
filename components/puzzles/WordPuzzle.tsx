@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SuccessAnimation from '../SuccessAnimation'
 import type { WordGameData } from '@/lib/puzzles/word-data'
@@ -30,6 +30,8 @@ export default function WordPuzzle({
   wordData,
   onComplete,
 }: WordPuzzleProps) {
+  const [showInstructions, setShowInstructions] = useState(true)
+
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState('')
   const [hasAnswered, setHasAnswered] = useState(false)
@@ -43,6 +45,27 @@ export default function WordPuzzle({
 
   const currentWord = wordData.words[currentWordIndex]
   const isLastWord = currentWordIndex === wordData.words.length - 1
+
+  const maxPoints = 20
+
+  const instructions = useMemo(() => {
+    return {
+      icon: '🔤',
+      title: wordData.title || 'Wörter-Rätsel',
+      subtitle: 'Entwirre die Buchstaben – je schneller, desto mehr Punkte.',
+      goal: 'Du siehst gemischte Buchstaben. Tippe das richtige Wort und sende ab.',
+      bullets: [
+        { label: 'Eingabe', value: 'Antwort eintippen (Groß-/Kleinschreibung egal) und „Antwort absenden“ klicken.' },
+        { label: 'Hinweis', value: 'Unter den Buchstaben bekommst du einen Tipp zum Wort.' },
+        { label: 'Punkte', value: `Maximal ${maxPoints} Punkte: bis 10s volle Punkte, danach -1 Punkt pro Sekunde (Minimum 0).` },
+        { label: 'Ablauf', value: `Es gibt ${wordData.words.length} Wörter. Nach jeder Antwort geht’s zum nächsten Wort.` },
+      ],
+      exampleTitle: 'Beispiel',
+      exampleText: '„KATZE“ könnte als „ZTEAK“ angezeigt werden – du tippst „KATZE“.',
+      tip: 'Tipp: Wenn du unsicher bist, nutze den Hinweis – Geschwindigkeit lohnt sich.',
+      startLabel: 'Los geht’s ▶',
+    }
+  }, [wordData.title, wordData.words.length])
 
   // Reset animation when word changes
   useEffect(() => {
@@ -60,6 +83,7 @@ export default function WordPuzzle({
 
   // Timer effect - updates every second
   useEffect(() => {
+    if (showInstructions) return
     if (hasAnswered) return // Stop timer when answered
 
     const interval = setInterval(() => {
@@ -68,9 +92,11 @@ export default function WordPuzzle({
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [hasAnswered, wordStartTime])
+  }, [hasAnswered, wordStartTime, showInstructions])
 
   useEffect(() => {
+    if (showInstructions) return
+
     const supabase = createClient()
 
     // Subscribe to player answers for this word
@@ -114,10 +140,11 @@ export default function WordPuzzle({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId, currentWordIndex, players])
+  }, [sessionId, currentWordIndex, players, showInstructions])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (showInstructions) return
     if (!userAnswer.trim() || hasAnswered) return
 
     const normalizedAnswer = userAnswer.toUpperCase().trim()
@@ -167,6 +194,62 @@ export default function WordPuzzle({
     setShowSuccessAnimation(false)
   }
 
+  /* ================= INSTRUCTIONS SCREEN ================= */
+
+  if (showInstructions) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-xl bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-3xl">{instructions.icon}</span>
+            <div>
+              <h1 className="text-white text-xl font-bold">{instructions.title}</h1>
+              <p className="text-gray-300 text-sm">{instructions.subtitle}</p>
+            </div>
+          </div>
+
+          <div className="bg-black/20 border border-white/10 rounded-xl p-4 mb-5">
+            <p className="text-gray-200">{instructions.goal}</p>
+
+            <ul className="text-gray-300 text-sm space-y-2 mt-3 list-disc pl-5">
+              {instructions.bullets.map((b) => (
+                <li key={b.label}>
+                  <span className="text-white/90 font-semibold">{b.label}:</span> {b.value}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="text-xs text-gray-400 mb-2">{instructions.exampleTitle}</div>
+              <div className="text-gray-200 text-sm">{instructions.exampleText}</div>
+            </div>
+          </div>
+
+          <button
+            className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-lg transition-all"
+            onClick={() => {
+              setShowInstructions(false)
+              // ensure clean start on first word
+              setCurrentWordIndex(0)
+              setUserAnswer('')
+              setHasAnswered(false)
+              setIsCorrect(false)
+              setPlayerAnswers([])
+              setTimeElapsed(0)
+              setWordStartTime(Date.now())
+              setEarnedPoints(0)
+              setShowSuccessAnimation(false)
+            }}
+          >
+            {instructions.startLabel}
+          </button>
+
+          <p className="text-xs text-gray-400 mt-3">{instructions.tip}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Success Animation */}
@@ -192,22 +275,33 @@ export default function WordPuzzle({
           </div>
           {!hasAnswered && (
             <>
-              <div className={`px-4 py-2 rounded-lg ${
-                timeElapsed <= 10 ? 'bg-green-500/20 border border-green-500/30' :
-                timeElapsed <= 20 ? 'bg-yellow-500/20 border border-yellow-500/30' :
-                'bg-red-500/20 border border-red-500/30'
-              }`}>
+              <div
+                className={`px-4 py-2 rounded-lg ${
+                  timeElapsed <= 10
+                    ? 'bg-green-500/20 border border-green-500/30'
+                    : timeElapsed <= 20
+                      ? 'bg-yellow-500/20 border border-yellow-500/30'
+                      : 'bg-red-500/20 border border-red-500/30'
+                }`}
+              >
                 <span className="text-gray-400">Zeit:</span>{' '}
                 <span className="text-white font-semibold">{timeElapsed}s</span>
               </div>
-              <div className={`px-4 py-2 rounded-lg ${
-                currentPoints === 20 ? 'bg-green-500/20 border border-green-500/30' :
-                currentPoints >= 10 ? 'bg-yellow-500/20 border border-yellow-500/30' :
-                currentPoints > 0 ? 'bg-orange-500/20 border border-orange-500/30' :
-                'bg-red-500/20 border border-red-500/30'
-              }`}>
+              <div
+                className={`px-4 py-2 rounded-lg ${
+                  currentPoints === 20
+                    ? 'bg-green-500/20 border border-green-500/30'
+                    : currentPoints >= 10
+                      ? 'bg-yellow-500/20 border border-yellow-500/30'
+                      : currentPoints > 0
+                        ? 'bg-orange-500/20 border border-orange-500/30'
+                        : 'bg-red-500/20 border border-red-500/30'
+                }`}
+              >
                 <span className="text-gray-400">Wert:</span>{' '}
-                <span className="text-white font-semibold">{currentPoints} Pkt</span>
+                <span className="text-white font-semibold">
+                  {currentPoints} Pkt
+                </span>
               </div>
             </>
           )}
@@ -258,16 +352,22 @@ export default function WordPuzzle({
                 <div className="p-6 bg-green-500/20 border-2 border-green-500/50 rounded-xl">
                   <p className="text-3xl mb-2">✓</p>
                   <p className="text-xl font-semibold text-green-300">Richtig!</p>
-                  <p className="text-2xl font-bold text-white mt-2">{currentWord.answer}</p>
+                  <p className="text-2xl font-bold text-white mt-2">
+                    {currentWord.answer}
+                  </p>
                   <div className="mt-3 space-y-1">
-                    <p className="text-2xl font-bold text-green-400">+{earnedPoints} Punkte</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      +{earnedPoints} Punkte
+                    </p>
                     <p className="text-xs text-gray-400">Zeit: {timeElapsed}s</p>
                   </div>
                 </div>
               ) : (
                 <div className="p-6 bg-red-500/20 border-2 border-red-500/50 rounded-xl">
                   <p className="text-3xl mb-2">✗</p>
-                  <p className="text-xl font-semibold text-red-300">Leider falsch</p>
+                  <p className="text-xl font-semibold text-red-300">
+                    Leider falsch
+                  </p>
                   <p className="text-sm text-gray-400 mt-2">Richtige Antwort:</p>
                   <p className="text-2xl font-bold text-white">{currentWord.answer}</p>
                 </div>
