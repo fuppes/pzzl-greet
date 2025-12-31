@@ -329,6 +329,7 @@ export default function ChatTypingRaceWithLeaderboard({
   const finishGame = useCallback(async () => {
     setGameFinished(true)
 
+    // optional legacy: wenn du irgendwann wieder „warte auf alle“ willst
     if (players.length <= 1) {
       setAllPlayersFinished(true)
     }
@@ -338,7 +339,7 @@ export default function ChatTypingRaceWithLeaderboard({
     const payload: PlayerActionInsert = {
       session_id: sessionId,
       player_id: playerId,
-      puzzle_index: 0,
+      puzzle_index: puzzleIndex ?? 0, // ✅ FIX: nicht hardcoded 0
       action_type: 'chat_typing_finished',
       data: { points: totalPoints },
     }
@@ -347,9 +348,10 @@ export default function ChatTypingRaceWithLeaderboard({
 
     if (timerRef.current) clearInterval(timerRef.current)
     if (penaltyTimerRef.current) clearTimeout(penaltyTimerRef.current)
-  }, [players.length, sessionId, playerId, totalPoints])
+  }, [players.length, sessionId, playerId, totalPoints, puzzleIndex])
 
   useEffect(() => {
+    if (showInstructions) return // ✅ FIX: Timer erst nach Start
     if (gameFinished) return
 
     timerRef.current = setInterval(() => {
@@ -365,7 +367,7 @@ export default function ChatTypingRaceWithLeaderboard({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [gameFinished, finishGame])
+  }, [showInstructions, gameFinished, finishGame])
 
   /* ================= AUTO SCROLL GHOST (horizontal) ================= */
 
@@ -519,7 +521,8 @@ export default function ChatTypingRaceWithLeaderboard({
 
   /* ================= LEADERBOARD ================= */
 
-  if (allPlayersFinished) {
+  // ✅ FIX: sobald das Spiel vorbei ist -> Leaderboard anzeigen
+  if (gameFinished || allPlayersFinished) {
     return (
       <Leaderboard
         sessionId={sessionId}
@@ -552,19 +555,29 @@ export default function ChatTypingRaceWithLeaderboard({
 
           <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 mb-5">
             <p className="text-slate-200">
-              Du bekommst Nachrichten in wechselnden Chats. Tippe die <span className="font-semibold">vorgegebene</span>{' '}
-              Antwort und drücke <span className="font-semibold">Enter</span>.
+              Du bekommst Nachrichten in wechselnden Chats. Tippe die{' '}
+              <span className="font-semibold">vorgegebene</span> Antwort und drücke{' '}
+              <span className="font-semibold">Enter</span>.
             </p>
 
             <ul className="text-slate-300 text-sm space-y-2 mt-3 list-disc pl-5">
               <li>
-                ⏱ Zeit: <span className="text-white/90 font-semibold">{GAME_DURATION}s</span>
+                ⏱ Zeit:{' '}
+                <span className="text-white/90 font-semibold">{GAME_DURATION}s</span>
               </li>
               <li>
-                ✅ Richtige Antwort: <span className="text-white/90 font-semibold">+{CORRECT_ANSWER_POINTS}</span> Punkte
+                ✅ Richtige Antwort:{' '}
+                <span className="text-white/90 font-semibold">
+                  +{CORRECT_ANSWER_POINTS}
+                </span>{' '}
+                Punkte
               </li>
               <li>
-                ❌ Falsch: <span className="text-white/90 font-semibold">-{PENALTY_TIME_SECONDS}s</span> Zeitstrafe
+                ❌ Falsch:{' '}
+                <span className="text-white/90 font-semibold">
+                  -{PENALTY_TIME_SECONDS}s
+                </span>{' '}
+                Zeitstrafe
               </li>
               <li>Der aktive Chat wird automatisch gewechselt.</li>
               <li>Groß-/Kleinschreibung ist egal, der Rest muss matchen.</li>
