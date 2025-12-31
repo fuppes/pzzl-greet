@@ -172,6 +172,43 @@ export default function Leaderboard({
         <p className="text-xl text-gray-300">
           {allFinished ? 'Alle haben fertig gespielt!' : 'Warte auf andere Spieler...'}
         </p>
+
+        {/* IMPORTANT NOTE: refresh hint for less technical users */}
+        <div className="mx-auto max-w-2xl text-left bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+          <p className="text-white font-semibold mb-1">Falls du hier festhängst:</p>
+          <p className="text-gray-200 text-sm leading-relaxed">
+            Diese Ansicht aktualisiert sich nicht automatisch. Bitte{' '}
+            <span className="font-semibold">einmal die Seite neu laden (Refresh)</span>, am besten{' '}
+            <span className="font-semibold">direkt beim Start eines neuen Spiels, nachdem der Host auf weiter gedrückt hat.</span>.
+          </p>
+
+          <div className="mt-3 grid gap-2 text-sm text-gray-200">
+            <div className="flex gap-2">
+              <span className="text-gray-400">•</span>
+              <span>
+                <span className="font-semibold">Am PC/Mac:</span> Drücke{' '}
+                <span className="font-semibold">F5</span> oder{' '}
+                <span className="font-semibold">Strg + R</span> (Windows) /{' '}
+                <span className="font-semibold">⌘ + R</span> (Mac).
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-400">•</span>
+              <span>
+                <span className="font-semibold">Im Browser:</span> Klicke oben links auf das{' '}
+                <span className="font-semibold">↻</span>-Symbol neben der Adresszeile.
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-400">•</span>
+              <span>
+                <span className="font-semibold">Am Handy/Tablet:</span> Ziehe die Seite kurz{' '}
+                <span className="font-semibold">nach unten</span> (Pull-to-refresh) oder nutze das{' '}
+                <span className="font-semibold">↻</span>-Symbol im Browser-Menü.
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Current Player Highlight */}
@@ -206,15 +243,9 @@ export default function Leaderboard({
             >
               {/* Rank */}
               <div className="flex-shrink-0 w-12 text-center">
-                {index === 0 && (
-                  <span className="text-3xl">🥇</span>
-                )}
-                {index === 1 && (
-                  <span className="text-3xl">🥈</span>
-                )}
-                {index === 2 && (
-                  <span className="text-3xl">🥉</span>
-                )}
+                {index === 0 && <span className="text-3xl">🥇</span>}
+                {index === 1 && <span className="text-3xl">🥈</span>}
+                {index === 2 && <span className="text-3xl">🥉</span>}
                 {index > 2 && (
                   <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
                 )}
@@ -267,7 +298,9 @@ export default function Leaderboard({
           }}
           className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"
         >
-          {puzzleIndex === totalGames - 1 ? 'Zur Bestenliste' : `Weiter${nextGameName ? `: ${nextGameName}` : ''}`}
+          {puzzleIndex === totalGames - 1
+            ? 'Zur Bestenliste'
+            : `Weiter${nextGameName ? `: ${nextGameName}` : ''}`}
         </button>
       )}
 
@@ -277,8 +310,7 @@ export default function Leaderboard({
           <p className="text-gray-400">
             {puzzleIndex === totalGames - 1
               ? 'Warte darauf, dass der Host zur Bestenliste weitergeht...'
-              : 'Warte darauf, dass der Host zum nächsten Spiel weitergeht...'
-            }
+              : 'Warte darauf, dass der Host zum nächsten Spiel weitergeht...'}
           </p>
         </div>
       )}
