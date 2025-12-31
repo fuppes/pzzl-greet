@@ -66,7 +66,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-6 pt-12">
           <div className="p-6 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-200">
             <div className="text-4xl mb-4">🎮</div>
-            <h3 className="text-lg font-semibold mb-2 text-white">3 Rätsel</h3>
+            <h3 className="text-lg font-semibold mb-2 text-white">Rätsel</h3>
             <p className="text-gray-400 text-sm">
               Quiz, Puzzle und Wort-Rätsel für die ganze Familie
             </p>
@@ -88,7 +88,30 @@ export default function Home() {
             </p>
           </div>
         </div>
+
+        {/* GitHub Button */}
+        <div className="pt-10 flex justify-center">
+          <a
+            href="https://github.com/fuppes/pzzl-greet"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all group"
+          >
+            {/* GitHub Icon */}
+            <svg
+              className="w-6 h-6 fill-current group-hover:scale-110 transition-transform"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.95.57.1.78-.25.78-.56v-2.02c-3.2.7-3.87-1.54-3.87-1.54-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.3 1.18-3.11-.12-.29-.51-1.45.11-3.03 0 0 .97-.31 3.18 1.19a11.1 11.1 0 0 1 2.9-.39c.99 0 1.99.13 2.9.39 2.2-1.5 3.17-1.19 3.17-1.19.63 1.58.24 2.74.12 3.03.73.81 1.17 1.85 1.17 3.11 0 4.43-2.69 5.4-5.25 5.68.41.35.78 1.05.78 2.12v3.15c0 .31.21.67.79.56A11.53 11.53 0 0 0 23.5 12C23.5 5.74 18.27.5 12 .5z" />
+            </svg>
+
+            <span className="text-sm font-medium">
+              Projekt auf GitHub ansehen
+            </span>
+          </a>
+        </div>
       </div>
     </main>
-  );
+  )
 }
