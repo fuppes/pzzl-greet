@@ -272,6 +272,7 @@ export default function ChatTypingRaceWithLeaderboard({
 
   const inputRef = useRef<HTMLInputElement>(null)
   const inputContainerRef = useRef<HTMLDivElement>(null)
+  const inputBarRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const penaltyTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -290,14 +291,14 @@ export default function ChatTypingRaceWithLeaderboard({
   /* ================= FOCUS: keep input focused ================= */
 
   const forceFocus = useCallback(() => {
-    // don’t steal focus when game finished
+    // don't steal focus when game finished
     if (gameFinished) return
     requestAnimationFrame(() => {
       inputRef.current?.focus({ preventScroll: true })
     })
   }, [gameFinished])
 
-  // Re-focus after thread changes or current message changes (without scrolling).
+  // Re-focus after thread changes or current message changes
   useEffect(() => {
     forceFocus()
   }, [activeThreadKey, currentMessage, forceFocus])
@@ -320,7 +321,13 @@ export default function ChatTypingRaceWithLeaderboard({
   const scrollToBottomIfSticky = useCallback(() => {
     if (!stickToBottomRef.current) return
     requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      const container = scrollContainerRef.current
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
     })
   }, [])
 
@@ -613,9 +620,9 @@ export default function ChatTypingRaceWithLeaderboard({
       className="min-h-screen bg-slate-900 flex items-center justify-center p-2"
       onPointerDown={handleContainerPointerDown}
     >
-      <div className="w-full max-w-none sm:max-w-3xl h-[92vh] bg-slate-800 rounded-xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-none sm:max-w-3xl h-[92vh] bg-slate-800 rounded-xl flex flex-col">
         {/* HEADER */}
-        <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 flex justify-between items-center">
+        <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 flex justify-between items-center shrink-0">
           <span className="text-white font-bold">💬 Chat Typing Race</span>
           <div className="flex items-center gap-3">
             <span className="text-white/90 font-semibold text-sm">🏆 {totalPoints}</span>
@@ -624,7 +631,7 @@ export default function ChatTypingRaceWithLeaderboard({
         </div>
 
         {/* THREAD INDICATOR (auto-switched) */}
-        <div className="border-b border-slate-700 px-2 py-2 overflow-x-auto">
+        <div className="border-b border-slate-700 px-2 py-2 overflow-x-auto shrink-0">
           <div className="flex gap-2 min-w-max pointer-events-none">
             {threadList.length === 0 ? (
               <div className="text-xs text-gray-400 px-2">Chats laden…</div>
@@ -654,7 +661,7 @@ export default function ChatTypingRaceWithLeaderboard({
         <div
           ref={scrollContainerRef}
           onScroll={updateStickToBottom}
-          className="flex-1 overflow-y-auto px-3 py-4 bg-slate-900"
+          className="flex-1 overflow-y-auto px-3 py-4 bg-slate-900 min-h-0"
         >
           <div className="min-h-full flex flex-col justify-end">
             <div className="space-y-3">
@@ -718,7 +725,7 @@ export default function ChatTypingRaceWithLeaderboard({
 
         {/* INPUT BAR (always visible, focus stays here) */}
         {!gameFinished && currentMessage && (
-          <div className="bg-slate-800 border-t border-slate-700 p-3">
+          <div ref={inputBarRef} className="bg-slate-800 border-t border-slate-700 p-3 shrink-0">
             <div
               ref={inputContainerRef}
               className="relative bg-slate-700 rounded-xl overflow-x-auto"
