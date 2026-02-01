@@ -271,7 +271,7 @@ export default function ChatTypingRaceWithLeaderboard({
   const [threads, setThreads] = useState<Record<string, Thread>>({})
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const nextCharRef = useRef<HTMLSpanElement>(null)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const penaltyTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -369,15 +369,22 @@ export default function ChatTypingRaceWithLeaderboard({
     }
   }, [showInstructions, gameFinished, finishGame])
 
-  /* ================= AUTO SCROLL GHOST (horizontal) ================= */
+  /* ================= AUTO SCROLL INPUT (horizontal) ================= */
 
   useEffect(() => {
-    nextCharRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'center',
-      block: 'nearest',
-    })
-  }, [typedText])
+    if (!inputRef.current || !currentMessage) return
+
+    // Calculate scroll position based on typed text length
+    const charWidth = 9.6 // Average monospace char width at 16px
+    const currentPos = typedText.length * charWidth
+    const containerWidth = inputContainerRef.current?.clientWidth || 0
+
+    // Scroll to keep current position centered
+    if (inputContainerRef.current) {
+      const scrollLeft = Math.max(0, currentPos - containerWidth / 2)
+      inputContainerRef.current.scrollLeft = scrollLeft
+    }
+  }, [typedText, currentMessage])
 
   /* ================= THREAD HELPERS ================= */
 
@@ -712,20 +719,20 @@ export default function ChatTypingRaceWithLeaderboard({
         {/* INPUT BAR (always visible, focus stays here) */}
         {!gameFinished && currentMessage && (
           <div className="bg-slate-800 border-t border-slate-700 p-3">
-            <div className="relative bg-slate-700 rounded-xl overflow-hidden">
+            <div
+              ref={inputContainerRef}
+              className="relative bg-slate-700 rounded-xl overflow-x-auto"
+            >
               {/* GHOST */}
-              <div className="absolute inset-0 px-4 py-3 pointer-events-none overflow-x-auto whitespace-nowrap">
-                <span className="font-mono text-white/30 text-base">
-                  {currentMessage.requiredResponse.split('').map((char, i) => (
-                    <span
-                      key={i}
-                      ref={i === typedText.length ? nextCharRef : null}
-                      className={i < typedText.length ? 'opacity-0' : ''}
-                    >
-                      {char}
-                    </span>
-                  ))}
-                </span>
+              <div className="typing-race-text text-white/30 absolute top-0 left-0 pointer-events-none">
+                {currentMessage.requiredResponse.split('').map((char, i) => (
+                  <span
+                    key={i}
+                    className={i < typedText.length ? 'opacity-0' : ''}
+                  >
+                    {char}
+                  </span>
+                ))}
               </div>
 
               {/* INPUT */}
@@ -737,7 +744,7 @@ export default function ChatTypingRaceWithLeaderboard({
                   if (e.key === 'Enter' && typedText.trim()) checkAnswer()
                 }}
                 onBlur={() => forceFocus()}
-                className="w-full bg-transparent px-4 py-3 font-mono text-white text-base outline-none relative z-10"
+                className="typing-race-text w-full bg-transparent text-white relative z-10"
                 autoFocus
                 inputMode="text"
                 autoComplete="off"

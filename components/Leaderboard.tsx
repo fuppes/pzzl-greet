@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 import { logError } from '@/lib/error-handler'
@@ -27,6 +28,9 @@ interface LeaderboardProps {
   nextGameName?: string
 }
 
+// ✅ Passe das ggf. an deine echte Route an:
+const GREETING_PATH = '/greeting'
+
 export default function Leaderboard({
   sessionId,
   puzzleIndex,
@@ -38,30 +42,42 @@ export default function Leaderboard({
   roomId,
   nextGameName,
 }: LeaderboardProps) {
+  const router = useRouter()
+
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [selectedEmoji, setSelectedEmoji] = useState('')
   const [messageSent, setMessageSent] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
+  const isLastGame = puzzleIndex === totalGames - 1
+
+  const buildGreetingUrl = useCallback(() => {
+    // Wenn du auf der GreetingPage Query-Params nutzt, ist das praktisch.
+    const params = new URLSearchParams()
+    params.set('sessionId', sessionId)
+    params.set('playerId', currentPlayerId)
+    if (roomId) params.set('roomId', roomId)
+    return `${GREETING_PATH}?${params.toString()}`
+  }, [sessionId, currentPlayerId, roomId])
 
   useEffect(() => {
     const supabase = createClient()
 
     const loadScores = async () => {
-      // Get ALL actions up to and including current puzzle for cumulative scoring
       const { data: actions } = await supabase
         .from('player_actions')
         .select('*')
         .eq('session_id', sessionId)
-        .lte('puzzle_index', puzzleIndex) // All puzzles up to current one
-        .in('action_type', ['quiz_answer', 'memory_match', 'memory_mismatch', 'word_answer']) // All scoring actions
+        .lte('puzzle_index', puzzleIndex)
+        .in('action_type', ['quiz_answer', 'memory_match', 'memory_mismatch', 'word_answer'])
 
       if (!actions) {
         setIsLoading(false)
         return
       }
 
-      // Calculate cumulative scores per player across all puzzles
       const scores: Record<string, { score: number; questionCount: number }> = {}
 
       actions.forEach((action: any) => {
@@ -69,13 +85,11 @@ export default function Leaderboard({
         if (!scores[action.player_id]) {
           scores[action.player_id] = { score: 0, questionCount: 0 }
         }
-        // Add points (can be negative for wrong memory matches)
         const points = data.points || 0
-        scores[action.player_id].score = Math.max(0, scores[action.player_id].score + points) // Min 0
+        scores[action.player_id].score = Math.max(0, scores[action.player_id].score + points)
         scores[action.player_id].questionCount += 1
       })
 
-      // Map to player scores
       const playerScoresData: PlayerScore[] = players.map((player) => {
         const playerData = scores[player.id] || { score: 0, questionCount: 0 }
         return {
@@ -83,11 +97,10 @@ export default function Leaderboard({
           playerName: player.name,
           playerColor: player.color || '#3b82f6',
           score: playerData.score,
-          isFinished: true, // Always true - we only show leaderboard when all players finished
+          isFinished: true,
         }
       })
 
-      // Sort by score descending
       playerScoresData.sort((a, b) => b.score - a.score)
 
       setPlayerScores(playerScoresData)
@@ -96,7 +109,7 @@ export default function Leaderboard({
 
     loadScores()
 
-    // Subscribe to new answers
+    // Score updates
     const channel = supabase
       .channel(`leaderboard_${sessionId}_${puzzleIndex}`)
       .on(
@@ -118,6 +131,39 @@ export default function Leaderboard({
     }
   }, [sessionId, puzzleIndex, players])
 
+  /**
+   * ✅ FIX: Navigation-Sync für ALLE Spieler
+   * Host schreibt am Ende "navigate -> greeting"
+   * Alle Clients hören drauf und leiten weiter.
+   */
+  useEffect(() => {
+    const supabase = createClient()
+
+    const navChannel = supabase
+      .channel(`nav_${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'player_actions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const action: any = payload.new
+          if (action?.action_type === 'navigate' && action?.data?.to === 'greeting') {
+            setIsRedirecting(true)
+            router.replace(buildGreetingUrl())
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(navChannel)
+    }
+  }, [sessionId, router, buildGreetingUrl])
+
   const allFinished = playerScores.every((p) => p.isFinished)
   const currentPlayerData = playerScores.find((p) => p.playerId === currentPlayerId)
   const currentPlayerRank = playerScores.findIndex((p) => p.playerId === currentPlayerId) + 1
@@ -132,7 +178,7 @@ export default function Leaderboard({
 
     const { error } = await supabase
       .from('player_messages')
-      // @ts-expect-error - Supabase type inference issue
+      // @ts-expect-error
       .insert({
         session_id: sessionId,
         player_id: currentPlayerId,
@@ -150,6 +196,39 @@ export default function Leaderboard({
     setMessageSent(true)
     setMessage('')
     setSelectedEmoji('')
+  }
+
+  const handleContinue = async () => {
+    if (!allFinished) return
+
+    // Normaler Flow (nicht letztes Spiel): einfach onContinue (Host-only) verwenden
+    if (!isLastGame) {
+      onContinue?.()
+      return
+    }
+
+    // ✅ Letztes Spiel: Host broadcastet Navigation -> greeting
+    // Damit werden ALLE Spieler weitergeleitet (nicht nur der Host).
+    try {
+      setIsRedirecting(true)
+      const supabase = createClient()
+
+      await supabase.from('player_actions').insert({
+        session_id: sessionId,
+        player_id: currentPlayerId,
+        puzzle_index: puzzleIndex,
+        action_type: 'navigate',
+        data: { to: 'greeting' },
+      } as any)
+
+      // Optional: Host kann zusätzlich direkt navigieren
+      // (Realtime kommt meist sofort, aber so ist es „sicher“)
+      router.replace(buildGreetingUrl())
+    } catch (err) {
+      logError(err as Error, 'Leaderboard: navigateToGreeting')
+      // Fallback: wenigstens Host kommt weiter
+      router.replace(buildGreetingUrl())
+    }
   }
 
   if (isLoading) {
@@ -170,16 +249,23 @@ export default function Leaderboard({
           </span>
         </h2>
         <p className="text-xl text-gray-300">
-          {allFinished ? 'Alle haben fertig gespielt!' : 'Warte auf andere Spieler...'}
+          {isRedirecting
+            ? 'Einen Moment… du wirst weitergeleitet 👀'
+            : allFinished
+              ? 'Alle haben fertig gespielt!'
+              : 'Warte auf andere Spieler...'}
         </p>
 
-        {/* IMPORTANT NOTE: refresh hint for less technical users */}
+        {/* Refresh hint */}
         <div className="mx-auto max-w-2xl text-left bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
           <p className="text-white font-semibold mb-1">Falls du hier festhängst:</p>
           <p className="text-gray-200 text-sm leading-relaxed">
             Diese Ansicht aktualisiert sich nicht automatisch. Bitte{' '}
             <span className="font-semibold">einmal die Seite neu laden (Refresh)</span>, am besten{' '}
-            <span className="font-semibold">direkt beim Start eines neuen Spiels, nachdem der Host auf weiter gedrückt hat.</span>.
+            <span className="font-semibold">
+              direkt nachdem der Host auf „Weiter“ gedrückt hat
+            </span>
+            .
           </p>
 
           <div className="mt-3 grid gap-2 text-sm text-gray-200">
@@ -195,16 +281,15 @@ export default function Leaderboard({
             <div className="flex gap-2">
               <span className="text-gray-400">•</span>
               <span>
-                <span className="font-semibold">Im Browser:</span> Klicke oben links auf das{' '}
-                <span className="font-semibold">↻</span>-Symbol neben der Adresszeile.
+                <span className="font-semibold">Im Browser:</span> Klicke auf{' '}
+                <span className="font-semibold">↻</span> neben der Adresszeile.
               </span>
             </div>
             <div className="flex gap-2">
               <span className="text-gray-400">•</span>
               <span>
                 <span className="font-semibold">Am Handy/Tablet:</span> Ziehe die Seite kurz{' '}
-                <span className="font-semibold">nach unten</span> (Pull-to-refresh) oder nutze das{' '}
-                <span className="font-semibold">↻</span>-Symbol im Browser-Menü.
+                <span className="font-semibold">nach unten</span> (Pull-to-refresh).
               </span>
             </div>
           </div>
@@ -267,9 +352,7 @@ export default function Leaderboard({
                     <span className="ml-2 text-sm text-blue-400">(Du)</span>
                   )}
                 </p>
-                <p className="text-sm text-gray-400">
-                  {player.isFinished ? '✓ Fertig' : '⏳ Spielt noch...'}
-                </p>
+                <p className="text-sm text-gray-400">{player.isFinished ? '✓ Fertig' : '⏳ Spielt noch...'}</p>
               </div>
 
               {/* Score */}
@@ -283,7 +366,7 @@ export default function Leaderboard({
       </div>
 
       {/* Next Game Preview */}
-      {allFinished && nextGameName && puzzleIndex < totalGames - 1 && (
+      {allFinished && nextGameName && !isLastGame && (
         <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-2 border-purple-500/50 rounded-xl p-6 text-center">
           <p className="text-gray-300 mb-2">Als Nächstes</p>
           <p className="text-2xl font-bold text-white">{nextGameName}</p>
@@ -291,15 +374,14 @@ export default function Leaderboard({
       )}
 
       {/* Continue Button (Host only, when all finished) */}
-      {allFinished && isHost && onContinue && (
+      {allFinished && isHost && (
         <button
-          onClick={() => {
-            onContinue()
-          }}
-          className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50"
+          onClick={handleContinue}
+          disabled={isRedirecting}
+          className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg shadow-green-500/50 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {puzzleIndex === totalGames - 1
-            ? 'Zur Bestenliste'
+          {isLastGame
+            ? 'Zur Greetings-Seite 🎆'
             : `Weiter${nextGameName ? `: ${nextGameName}` : ''}`}
         </button>
       )}
@@ -308,9 +390,11 @@ export default function Leaderboard({
       {allFinished && !isHost && (
         <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-gray-400">
-            {puzzleIndex === totalGames - 1
-              ? 'Warte darauf, dass der Host zur Bestenliste weitergeht...'
-              : 'Warte darauf, dass der Host zum nächsten Spiel weitergeht...'}
+            {isRedirecting
+              ? 'Du wirst gleich weitergeleitet…'
+              : isLastGame
+                ? 'Warte kurz – der Host bringt uns gleich zur Greetings-Seite 🎆'
+                : 'Warte darauf, dass der Host zum nächsten Spiel weitergeht...'}
           </p>
         </div>
       )}

@@ -84,4 +84,78 @@ body {
   .delay-150 {
     animation-delay: 150ms;
   }
+
+  /* ============================================
+   * Type Racing Game: Shared Typography Styles
+   * ============================================
+   * Ensures pixel-perfect overlay alignment between
+   * ghost text and actual input on mobile and desktop.
+   */
+  .typing-race-text {
+    /* Font Properties - must match exactly */
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 1rem; /* 16px - explicit size prevents mobile zoom */
+    font-weight: 400;
+
+    /* Line Height - explicit value critical for vertical alignment */
+    line-height: 1.5;
+
+    /* Letter Spacing - prevents character drift */
+    letter-spacing: 0;
+
+    /* Font Variant & Features - disable ligatures and fancy features */
+    font-variant-ligatures: none;
+    font-feature-settings: normal;
+
+    /* Text Rendering - consistent across browsers */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    /* iOS Safari Text Size Adjust - prevents auto-zoom */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+
+    /* Transform Origin - prevents offset during animations/zoom */
+    transform-origin: top left;
+
+    /* White Space - no wrapping */
+    white-space: nowrap;
+
+    /* Padding - must be identical for both elements */
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+
+    /* Box Model - consistent calculation */
+    box-sizing: border-box;
+  }
+
+  /* Input-specific resets to eliminate browser defaults */
+  input.typing-race-text {
+    /* Remove all browser input styling */
+    border: none;
+    outline: none;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    /* Remove text shadows/effects that mobile browsers might add */
+    text-shadow: none;
+
+    /* Ensure no transforms */
+    transform: none;
+
+    /* Prevent autofill styling */
+    -webkit-autofill: none;
+  }
+
+  /* Remove iOS input shadows and borders */
+  input.typing-race-text:focus {
+    outline: none;
+    box-shadow: none;
+  }
 }
