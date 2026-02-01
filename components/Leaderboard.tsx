@@ -140,7 +140,11 @@ export default function Leaderboard({
     const supabase = createClient()
 
     const navChannel = supabase
-      .channel(`nav_${sessionId}`)
+      .channel(`nav_${sessionId}`, {
+        config: {
+          broadcast: { self: true }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -152,17 +156,43 @@ export default function Leaderboard({
         (payload) => {
           const action: any = payload.new
           if (action?.action_type === 'navigate' && action?.data?.to === 'greeting') {
+            console.log('📡 Navigation event received:', action)
             setIsRedirecting(true)
             router.replace(buildGreetingUrl())
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Nav channel subscription status:', status)
+      })
+
+    // Fallback: Check for navigate action periodically if last game
+    let intervalId: NodeJS.Timeout | null = null
+    if (isLastGame && !isHost) {
+      intervalId = setInterval(async () => {
+        const { data } = await supabase
+          .from('player_actions')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('action_type', 'navigate')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (data && (data as any).data?.to === 'greeting') {
+          console.log('📡 Navigate action found via polling')
+          setIsRedirecting(true)
+          router.replace(buildGreetingUrl())
+          if (intervalId) clearInterval(intervalId)
+        }
+      }, 2000) // Check every 2 seconds
+    }
 
     return () => {
       supabase.removeChannel(navChannel)
+      if (intervalId) clearInterval(intervalId)
     }
-  }, [sessionId, router, buildGreetingUrl])
+  }, [sessionId, router, buildGreetingUrl, isLastGame, isHost])
 
   const allFinished = playerScores.every((p) => p.isFinished)
   const currentPlayerData = playerScores.find((p) => p.playerId === currentPlayerId)

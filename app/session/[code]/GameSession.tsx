@@ -33,6 +33,60 @@ export default function GameSession({ session: initialSession }: GameSessionProp
   const [isLoading, setIsLoading] = useState(true)
   const [showGreeting, setShowGreeting] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [localNetworkIp, setLocalNetworkIp] = useState<string | null>(null)
+
+  // Detect local network IP using WebRTC
+  useEffect(() => {
+    const detectLocalIp = async () => {
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [] })
+        pc.createDataChannel('')
+
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+
+        pc.onicecandidate = (ice) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) return
+
+          const candidate = ice.candidate.candidate
+          const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(candidate)
+
+          if (ipMatch && ipMatch[1]) {
+            const ip = ipMatch[1]
+            // Filter out localhost and special IPs
+            if (!ip.startsWith('127.') && !ip.startsWith('0.')) {
+              setLocalNetworkIp(ip)
+              pc.close()
+            }
+          }
+        }
+      } catch (err) {
+        console.log('Could not detect local IP:', err)
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      detectLocalIp()
+    }
+  }, [])
+
+  // Helper to get the correct base URL for QR codes on development/test systems
+  const getBaseUrl = () => {
+    if (typeof window === 'undefined') return ''
+
+    const hostname = window.location.hostname
+    const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1'
+    const port = window.location.port
+    const protocol = window.location.protocol
+
+    // If on localhost and we detected a network IP, use that
+    if (isDevelopment && localNetworkIp) {
+      return `${protocol}//${localNetworkIp}${port ? `:${port}` : ''}`
+    }
+
+    // Otherwise use current origin
+    return window.location.origin
+  }
 
   // ✅ keep latest status for polling guard without stale closure issues
   const sessionStatusRef = useRef<GameSession['status']>(initialSession.status)
@@ -93,7 +147,11 @@ export default function GameSession({ session: initialSession }: GameSessionProp
 
     // Subscribe to player changes
     const playersChannel = supabase
-      .channel(`session_${session.id}_players`)
+      .channel(`session_${session.id}_players`, {
+        config: {
+          broadcast: { self: true }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -103,10 +161,22 @@ export default function GameSession({ session: initialSession }: GameSessionProp
           filter: `session_id=eq.${session.id}`,
         },
         () => {
+          console.log('📡 Player change detected via Realtime')
           loadPlayers()
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Players channel subscription status:', status)
+      })
+
+    // Polling fallback for lobby (when status is 'waiting')
+    // This ensures the player list refreshes even if Realtime is slow/unreliable
+    const pollingInterval = setInterval(() => {
+      if (sessionStatusRef.current === 'waiting') {
+        console.log('🔄 Polling player list (lobby)')
+        loadPlayers()
+      }
+    }, 2000) // Poll every 2 seconds while in lobby
 
     // Subscribe to session changes (✅ only apply meaningful changes)
     const sessionChannel = supabase
@@ -180,6 +250,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       supabase.removeChannel(playersChannel)
       supabase.removeChannel(sessionChannel)
       clearInterval(pollInterval)
+      clearInterval(pollingInterval)
     }
   }, [session.id, session.session_code])
 
@@ -374,11 +445,7 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                 </h3>
                 <div className="bg-white p-4 rounded-lg">
                   <QRCodeSVG
-                    value={
-                      typeof window !== 'undefined'
-                        ? `${window.location.origin}/join/${session.session_code}`
-                        : ''
-                    }
+                    value={`${getBaseUrl()}/join/${session.session_code}`}
                     size={180}
                     level="H"
                   />
@@ -386,6 +453,34 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                 <p className="text-xs text-gray-400 text-center">
                   QR-Code scannen zum Beitreten
                 </p>
+                {typeof window !== 'undefined' &&
+                  (window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1') && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        localNetworkIp
+                          ? 'bg-green-500/10 border border-green-500/30'
+                          : 'bg-yellow-500/10 border border-yellow-500/30'
+                      }`}
+                    >
+                      {localNetworkIp ? (
+                        <div className="text-xs text-green-200 text-center leading-relaxed">
+                          ✅ <strong>Netzwerk-IP erkannt:</strong>{' '}
+                          <span className="font-mono">{localNetworkIp}</span>
+                          <br />
+                          Der QR-Code verwendet automatisch diese IP. Handy muss im selben WLAN
+                          sein.
+                        </div>
+                      ) : (
+                        <p className="text-xs text-yellow-200 text-center leading-relaxed">
+                          ⚠️ <strong>Localhost-Hinweis:</strong> Netzwerk-IP wird erkannt...
+                          <br />
+                          Alternativ rufe diese Seite über deine lokale IP auf (z.B.
+                          http://192.168.x.x:3000).
+                        </p>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Instructions */}
