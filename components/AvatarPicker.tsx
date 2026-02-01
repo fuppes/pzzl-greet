@@ -26,7 +26,7 @@ export default function AvatarPicker({ selectedAvatar, onSelect }: AvatarPickerP
             key={avatar}
             type="button"
             onClick={() => onSelect(avatar)}
-            className={`text-3xl p-3 rounded-lg transition-all transform hover:scale-110 ${
+            className={`text-3xl p-3 rounded-lg transition-all transform hover:scale-110 flex items-center justify-center ${
               selectedAvatar === avatar
                 ? 'bg-blue-500/30 ring-2 ring-blue-400 scale-110'
                 : 'bg-white/5 hover:bg-white/10'
