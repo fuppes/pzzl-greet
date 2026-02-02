@@ -1,4 +1,4 @@
-export type GameType = 'quiz' | 'memory' | 'word' | 'chat_typing'
+export type GameType = 'quiz' | 'memory' | 'word' | 'chat_typing' | 'countdown_rhythm'
 
 // Quiz Game Config
 export interface QuizQuestion {
@@ -39,8 +39,16 @@ export interface ChatTypingConfig {
   duration: number // Game duration in seconds
 }
 
+// Countdown Rhythm Game Config
+export interface CountdownRhythmConfig {
+  startNumber: number // Starting countdown value (e.g., 20)
+  targetNumber: number // Target number to reach (e.g., 10)
+  beatInterval: number // Milliseconds per beat (e.g., 1000 = 1 second)
+  visibleBeats: number // How many beats to show before hiding (e.g., 5)
+}
+
 // Generic Game Config
-export type GameConfig = QuizConfig | MemoryConfig | WordConfig | ChatTypingConfig
+export type GameConfig = QuizConfig | MemoryConfig | WordConfig | ChatTypingConfig | CountdownRhythmConfig
 
 // Game Database Type
 export interface Game {
@@ -125,5 +133,17 @@ export const GAME_TYPES = {
     defaultConfig: {
       duration: 60,
     } as ChatTypingConfig,
+  },
+  countdown_rhythm: {
+    id: 'countdown_rhythm' as const,
+    name: 'Countdown Rhythmus',
+    icon: '⏱️',
+    description: 'Halte den Rhythmus und stoppe zur richtigen Zeit!',
+    defaultConfig: {
+      startNumber: 20,
+      targetNumber: 10,
+      beatInterval: 1000,
+      visibleBeats: 5,
+    } as CountdownRhythmConfig,
   },
 } as const

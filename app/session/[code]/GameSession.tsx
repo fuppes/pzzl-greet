@@ -7,6 +7,7 @@ import QuizWithLeaderboard from '@/components/puzzles/QuizWithLeaderboard'
 import MemoryWithLeaderboard from '@/components/puzzles/MemoryWithLeaderboard'
 import WordWithLeaderboard from '@/components/puzzles/WordWithLeaderboard'
 import ChatTypingRaceWithLeaderboard from '@/components/puzzles/ChatTypingRaceWithLeaderboard'
+import CountdownRhythmWithLeaderboard from '@/components/puzzles/CountdownRhythmWithLeaderboard'
 import FinalLeaderboard from '@/components/FinalLeaderboard'
 import GreetingPage from '@/components/GreetingPage'
 import ProgressBar from '@/components/ProgressBar'
@@ -582,6 +583,23 @@ export default function GameSession({ session: initialSession }: GameSessionProp
                       onContinue={handlePuzzleComplete}
                       totalGames={totalGames}
                       puzzleIndex={session.current_puzzle_index}
+                      nextGameName={nextGameName}
+                    />
+                  )
+                }
+
+                if (game.game_type === 'countdown_rhythm') {
+                  return (
+                    <CountdownRhythmWithLeaderboard
+                      sessionId={session.id}
+                      playerId={currentPlayer.id}
+                      players={players as any}
+                      gameData={game.config}
+                      isHost={isHost}
+                      onContinue={handlePuzzleComplete}
+                      totalGames={totalGames}
+                      puzzleIndex={session.current_puzzle_index}
+                      roomId={(session.rooms as any)?.id}
                       nextGameName={nextGameName}
                     />
                   )

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
+import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, CountdownRhythmConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
 import { GAME_TYPES } from '@/types/games'
 import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
@@ -143,6 +143,9 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
           )}
           {gameType === 'chat_typing' && (
             <ChatTypingConfigEditor config={config as ChatTypingConfig} onChange={setConfig} />
+          )}
+          {gameType === 'countdown_rhythm' && (
+            <CountdownRhythmConfigEditor config={config as CountdownRhythmConfig} onChange={setConfig} />
           )}
         </div>
 
@@ -645,6 +648,116 @@ function ChatTypingConfigEditor({
 
       <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
         💡 Die Spieler müssen in der vorgegebenen Zeit so viele Nachrichten wie möglich korrekt beantworten. Bei falschen Antworten gibt es eine Zeitstrafe von {CHAT_TYPING_CONFIG.PENALTY_SECONDS} Sekunden.
+      </div>
+    </div>
+  )
+}
+
+// Countdown Rhythm Config Editor
+function CountdownRhythmConfigEditor({
+  config,
+  onChange,
+}: {
+  config: CountdownRhythmConfig
+  onChange: (config: CountdownRhythmConfig) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <h4 className="text-lg font-semibold text-white">Countdown Rhythmus Einstellungen</h4>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Start Number */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">
+            Startzahl
+          </label>
+          <input
+            type="number"
+            value={config.startNumber}
+            onChange={(e) => onChange({ ...config, startNumber: parseInt(e.target.value) || 20 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={5}
+            max={100}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Die Zahl, bei der der Countdown beginnt (5-100)
+          </p>
+        </div>
+
+        {/* Target Number */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">
+            Zielzahl
+          </label>
+          <input
+            type="number"
+            value={config.targetNumber}
+            onChange={(e) => onChange({ ...config, targetNumber: parseInt(e.target.value) || 10 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={0}
+            max={config.startNumber - 1}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Die Zahl, bei der die Spieler stoppen sollen (0-{config.startNumber - 1})
+          </p>
+        </div>
+
+        {/* Beat Interval */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">
+            Rhythmus-Interval (ms)
+          </label>
+          <input
+            type="number"
+            value={config.beatInterval}
+            onChange={(e) => onChange({ ...config, beatInterval: parseInt(e.target.value) || 1000 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={300}
+            max={3000}
+            step={100}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Zeit zwischen jedem Count in Millisekunden (300-3000ms)
+          </p>
+          <p className="text-xs text-blue-300 mt-1">
+            {config.beatInterval}ms = {(config.beatInterval / 1000).toFixed(1)} Sekunde(n) pro Zahl
+          </p>
+        </div>
+
+        {/* Visible Beats */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">
+            Sichtbare Rhythmen
+          </label>
+          <input
+            type="number"
+            value={config.visibleBeats}
+            onChange={(e) => onChange({ ...config, visibleBeats: parseInt(e.target.value) || 5 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={3}
+            max={10}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Wie viele Countdown-Schritte gezeigt werden (3-10)
+          </p>
+        </div>
+      </div>
+
+      {/* Game Preview Info */}
+      <div className="bg-white/5 rounded-lg p-4 space-y-2">
+        <div className="text-sm font-medium text-white mb-2">Spiel-Vorschau:</div>
+        <div className="text-xs text-gray-300 space-y-1">
+          <div>• Countdown startet bei <span className="text-blue-400 font-bold">{config.startNumber}</span></div>
+          <div>• Spieler sehen <span className="text-purple-400 font-bold">{config.visibleBeats}</span> Rhythmen ({config.startNumber} → {config.startNumber - config.visibleBeats + 1})</div>
+          <div>• Sichtbare Dauer: <span className="text-green-400 font-bold">{((config.visibleBeats * config.beatInterval) / 1000).toFixed(1)}s</span></div>
+          <div>• Dann verschwinden die Zahlen</div>
+          <div>• Zielzahl: <span className="text-yellow-400 font-bold">{config.targetNumber}</span></div>
+          <div>• Verbleibende unsichtbare Counts: <span className="text-red-400 font-bold">{config.startNumber - config.visibleBeats - config.targetNumber}</span></div>
+        </div>
+      </div>
+
+      <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
+        💡 Die Spieler müssen den Rhythmus merken und im Kopf weiterzählen. Je näher sie der Zielzahl kommen, desto mehr Punkte gibt es! Perfekte Treffer = 100 Punkte, -10 Punkte pro Zahl Abweichung.
       </div>
     </div>
   )
