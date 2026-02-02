@@ -43,7 +43,14 @@ export default function FinalLeaderboard({
         .from('player_actions')
         .select('*')
         .eq('session_id', sessionId)
-        .in('action_type', ['quiz_answer', 'memory_match', 'memory_mismatch', 'word_answer'])
+        .in('action_type', [
+          'quiz_answer',
+          'memory_match',
+          'memory_mismatch',
+          'word_answer',
+          'chat_typing_finished',
+          'countdown_rhythm_stop'
+        ])
 
       if (!actions) {
         setIsLoading(false)
