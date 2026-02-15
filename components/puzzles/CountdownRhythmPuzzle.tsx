@@ -147,6 +147,7 @@ export default function CountdownRhythmPuzzle({
     const supabase = createClient()
 
     try {
+      // @ts-ignore - Supabase type issue
       const { error } = await supabase.from('player_actions').insert({
         session_id: sessionId,
         player_id: playerId,
@@ -312,7 +313,7 @@ export default function CountdownRhythmPuzzle({
   if (phase === 'stopped') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] flex items-center justify-center p-4">
-        {showSuccessAnimation && <SuccessAnimation />}
+        {showSuccessAnimation && <SuccessAnimation show={showSuccessAnimation} />}
         <div className="max-w-2xl w-full text-center">
           <div className="text-6xl mb-6">⏸️</div>
           <div className="text-white/60 text-lg mb-8">Du hast gestoppt bei...</div>
@@ -333,7 +334,7 @@ export default function CountdownRhythmPuzzle({
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] flex items-center justify-center p-4">
-        {showSuccessAnimation && <SuccessAnimation />}
+        {showSuccessAnimation && <SuccessAnimation show={showSuccessAnimation} />}
         <div className="max-w-2xl w-full bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm p-8">
           {/* Result header */}
           <div className="text-center mb-8">
