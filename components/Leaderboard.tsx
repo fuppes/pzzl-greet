@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 import { logError } from '@/lib/error-handler'
+import { getLeaderboardScores, displayScore } from '@/lib/scoring'
 
 type Player = Database['public']['Tables']['players']['Row']
 
@@ -66,44 +67,15 @@ export default function Leaderboard({
     const supabase = createClient()
 
     const loadScores = async () => {
-      const { data: actions } = await supabase
-        .from('player_actions')
-        .select('*')
-        .eq('session_id', sessionId)
-        .lte('puzzle_index', puzzleIndex)
-        .in('action_type', [
-          'quiz_answer',
-          'memory_match',
-          'memory_mismatch',
-          'word_answer',
-          'chat_typing_finished',
-          'countdown_rhythm_stop'
-        ])
-
-      if (!actions) {
-        setIsLoading(false)
-        return
-      }
-
-      const scores: Record<string, { score: number; questionCount: number }> = {}
-
-      actions.forEach((action: any) => {
-        const data = action.data as any
-        if (!scores[action.player_id]) {
-          scores[action.player_id] = { score: 0, questionCount: 0 }
-        }
-        const points = data.points || 0
-        scores[action.player_id].score = Math.max(0, scores[action.player_id].score + points)
-        scores[action.player_id].questionCount += 1
-      })
+      const scores = await getLeaderboardScores(sessionId, puzzleIndex)
 
       const playerScoresData: PlayerScore[] = players.map((player) => {
-        const playerData = scores[player.id] || { score: 0, questionCount: 0 }
+        const playerData = scores[player.id]
         return {
           playerId: player.id,
           playerName: player.name,
           playerColor: player.color || '#3b82f6',
-          score: playerData.score,
+          score: displayScore(playerData?.score ?? 0),
           isFinished: true,
         }
       })
