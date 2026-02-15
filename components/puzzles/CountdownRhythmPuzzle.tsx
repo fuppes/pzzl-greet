@@ -8,7 +8,7 @@ import type { Database } from '@/types/database'
 
 type Player = Database['public']['Tables']['players']['Row']
 
-type GamePhase = 'intro' | 'rhythm' | 'hidden' | 'stopped' | 'result'
+type GamePhase = 'rules' | 'intro' | 'rhythm' | 'hidden' | 'stopped' | 'result'
 
 interface CountdownRhythmPuzzleProps {
   sessionId: string
@@ -27,7 +27,7 @@ export default function CountdownRhythmPuzzle({
   onComplete,
   puzzleIndex = 0,
 }: CountdownRhythmPuzzleProps) {
-  const [phase, setPhase] = useState<GamePhase>('intro')
+  const [phase, setPhase] = useState<GamePhase>('rules')
   const [currentNumber, setCurrentNumber] = useState(gameData.startNumber)
   const [visibleBeatsShown, setVisibleBeatsShown] = useState(0)
   const [stoppedAt, setStoppedAt] = useState<number | null>(null)
@@ -184,6 +184,61 @@ export default function CountdownRhythmPuzzle({
   // Handle completion button
   const handleComplete = () => {
     onComplete()
+  }
+
+  // Render rules/explanation phase
+  if (phase === 'rules') {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] via-[#1a1a2e] to-[#0a0a0a] flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm p-8 text-center">
+          <div className="text-6xl mb-6">⏱️</div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6">
+            Countdown Rhythmus
+          </h1>
+
+          <div className="space-y-4 text-left mb-8">
+            <div className="flex items-start gap-4 bg-white/5 rounded-xl p-4">
+              <span className="text-2xl mt-0.5">👀</span>
+              <p className="text-white/80">
+                Du siehst einen Countdown, der im Rhythmus herunterzählt — merke dir das Tempo!
+              </p>
+            </div>
+            <div className="flex items-start gap-4 bg-white/5 rounded-xl p-4">
+              <span className="text-2xl mt-0.5">🙈</span>
+              <p className="text-white/80">
+                Nach ein paar Zahlen verschwindet die Anzeige — aber der Countdown läuft im Kopf weiter.
+              </p>
+            </div>
+            <div className="flex items-start gap-4 bg-white/5 rounded-xl p-4">
+              <span className="text-2xl mt-0.5">🎯</span>
+              <p className="text-white/80">
+                Drücke <span className="font-bold text-red-400">STOP</span>, wenn du glaubst, dass der Countdown bei <span className="font-bold text-green-400">{gameData.targetNumber}</span> angekommen ist!
+              </p>
+            </div>
+            <div className="flex items-start gap-4 bg-white/5 rounded-xl p-4">
+              <span className="text-2xl mt-0.5">⭐</span>
+              <p className="text-white/80">
+                Je näher du an der Zielzahl bist, desto mehr Punkte bekommst du.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setPhase('intro')}
+            className="
+              w-full py-4
+              bg-gradient-to-r from-blue-600 to-purple-600
+              hover:from-blue-500 hover:to-purple-500
+              text-white font-bold text-xl rounded-xl
+              transition-all duration-200
+              hover:scale-105 active:scale-95
+            "
+          >
+            Los geht&apos;s!
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Render intro phase
