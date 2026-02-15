@@ -14,6 +14,7 @@ interface WordPuzzleProps {
   players: Player[]
   wordData: WordGameData
   onComplete: () => void
+  puzzleIndex?: number
 }
 
 interface PlayerAnswer {
@@ -29,6 +30,7 @@ export default function WordPuzzle({
   players,
   wordData,
   onComplete,
+  puzzleIndex = 0,
 }: WordPuzzleProps) {
   const [showInstructions, setShowInstructions] = useState(true)
 
@@ -114,7 +116,7 @@ export default function WordPuzzle({
           const action = payload.new as any
           if (
             action.action_type === 'word_answer' &&
-            action.puzzle_index === 2 &&
+            action.puzzle_index === puzzleIndex &&
             action.data
           ) {
             const data = action.data as any
@@ -140,7 +142,7 @@ export default function WordPuzzle({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId, currentWordIndex, players, showInstructions])
+  }, [sessionId, currentWordIndex, players, showInstructions, puzzleIndex])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -169,7 +171,7 @@ export default function WordPuzzle({
     await supabase.from('player_actions').insert({
       session_id: sessionId,
       player_id: playerId,
-      puzzle_index: 2,
+      puzzle_index: puzzleIndex,
       action_type: 'word_answer',
       data: {
         wordId: currentWord.id,

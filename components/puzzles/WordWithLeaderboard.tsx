@@ -46,7 +46,7 @@ export default function WordWithLeaderboard({
         .from('player_actions')
         .select('player_id')
         .eq('session_id', sessionId)
-        .eq('puzzle_index', 2)
+        .eq('puzzle_index', puzzleIndex)
         .eq('action_type', 'word_answer')
 
       if (!actions) return
@@ -162,6 +162,7 @@ export default function WordWithLeaderboard({
       players={players}
       wordData={wordGameData}
       onComplete={handleWordComplete}
+      puzzleIndex={puzzleIndex}
     />
   )
 }
