@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getFinalScores, displayScore } from '@/lib/scoring'
 import Achievement, { checkAchievements, type AchievementData } from './Achievement'
 import type { Database } from '@/types/database'
 
@@ -38,7 +39,25 @@ export default function FinalLeaderboard({
     const supabase = createClient()
 
     const loadScores = async () => {
-      // Get ALL actions from ALL puzzles for final cumulative scoring
+      const scores = await getFinalScores(sessionId)
+
+      const playerScoresData: PlayerScore[] = players.map((player) => {
+        const playerData = scores[player.id]
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          playerColor: player.color || '#3b82f6',
+          score: displayScore(playerData?.score ?? 0),
+        }
+      })
+
+      playerScoresData.sort((a, b) => b.score - a.score)
+
+      setPlayerScores(playerScoresData)
+      setIsLoading(false)
+
+      // Check achievements for current player
+      // Still need raw actions for achievement checks
       const { data: actions } = await supabase
         .from('player_actions')
         .select('*')
@@ -52,43 +71,10 @@ export default function FinalLeaderboard({
           'countdown_rhythm_stop'
         ])
 
-      if (!actions) {
-        setIsLoading(false)
-        return
+      if (actions) {
+        const earnedAchievements = checkAchievements(actions, players, currentPlayerId)
+        setAchievements(earnedAchievements)
       }
-
-      // Calculate cumulative scores per player across all puzzles
-      const scores: Record<string, number> = {}
-
-      actions.forEach((action: any) => {
-        const data = action.data as any
-        if (!scores[action.player_id]) {
-          scores[action.player_id] = 0
-        }
-        // Add points (can be negative for wrong memory matches)
-        const points = data.points || 0
-        scores[action.player_id] = Math.max(0, scores[action.player_id] + points) // Min 0
-      })
-
-      // Map to player scores
-      const playerScoresData: PlayerScore[] = players.map((player) => {
-        return {
-          playerId: player.id,
-          playerName: player.name,
-          playerColor: player.color || '#3b82f6',
-          score: scores[player.id] || 0,
-        }
-      })
-
-      // Sort by score descending
-      playerScoresData.sort((a, b) => b.score - a.score)
-
-      setPlayerScores(playerScoresData)
-      setIsLoading(false)
-
-      // Check achievements for current player
-      const earnedAchievements = checkAchievements(actions, players, currentPlayerId)
-      setAchievements(earnedAchievements)
     }
 
     loadScores()
