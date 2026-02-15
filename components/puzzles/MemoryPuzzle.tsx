@@ -14,6 +14,7 @@ interface MemoryPuzzleProps {
   players: Player[]
   memoryData: MemoryGameData
   onComplete: () => void
+  puzzleIndex?: number
 }
 
 export default function MemoryPuzzle({
@@ -22,6 +23,7 @@ export default function MemoryPuzzle({
   players,
   memoryData,
   onComplete,
+  puzzleIndex = 0,
 }: MemoryPuzzleProps) {
   const [cards, setCards] = useState<MemoryCard[]>([])
   const [flippedCards, setFlippedCards] = useState<string[]>([])
@@ -53,10 +55,10 @@ export default function MemoryPuzzle({
         },
         (payload) => {
           const action = payload.new as any
-          if (action.action_type === 'memory_flip' && action.puzzle_index === 1) {
+          if (action.action_type === 'memory_flip' && action.puzzle_index === puzzleIndex) {
             const data = action.data as { cardId: string }
             handleRemoteFlip(data.cardId)
-          } else if (action.action_type === 'memory_match' && action.puzzle_index === 1) {
+          } else if (action.action_type === 'memory_match' && action.puzzle_index === puzzleIndex) {
             const data = action.data as { pairId: string }
             setMatchedPairs((prev) => [...new Set([...prev, data.pairId])])
           }
@@ -67,7 +69,7 @@ export default function MemoryPuzzle({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [sessionId])
+  }, [sessionId, puzzleIndex])
 
   const handleRemoteFlip = (cardId: string) => {
     setFlippedCards((prev) => {
@@ -92,7 +94,7 @@ export default function MemoryPuzzle({
     await supabase.from('player_actions').insert({
       session_id: sessionId,
       player_id: playerId,
-      puzzle_index: 1,
+      puzzle_index: puzzleIndex,
       action_type: 'memory_flip',
       data: { cardId },
     })
@@ -118,7 +120,7 @@ export default function MemoryPuzzle({
           await supabase.from('player_actions').insert({
             session_id: sessionId,
             player_id: playerId,
-            puzzle_index: 1,
+            puzzle_index: puzzleIndex,
             action_type: 'memory_match',
             data: {
               pairId: card1.pairId,
@@ -136,7 +138,7 @@ export default function MemoryPuzzle({
           await supabase.from('player_actions').insert({
             session_id: sessionId,
             player_id: playerId,
-            puzzle_index: 1,
+            puzzle_index: puzzleIndex,
             action_type: 'memory_mismatch',
             data: {
               isCorrect: false,

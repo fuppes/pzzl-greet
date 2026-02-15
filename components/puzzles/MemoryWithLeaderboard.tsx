@@ -158,6 +158,7 @@ export default function MemoryWithLeaderboard({
       players={players}
       memoryData={memoryGameData}
       onComplete={handleMemoryComplete}
+      puzzleIndex={puzzleIndex}
     />
   )
 }
