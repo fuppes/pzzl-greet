@@ -226,10 +226,8 @@ export default function GameSession({ session: initialSession }: GameSessionProp
       .subscribe()
 
     // Polling fallback - check session status every 2 seconds
-    // ✅ Do NOT poll during in_progress to avoid re-init / reshuffle in games
+    // ✅ Only apply changes when something actually changed to avoid re-init / reshuffle
     const pollInterval = setInterval(async () => {
-      if (sessionStatusRef.current === 'in_progress') return
-
       const { data, error } = await supabase
         .from('game_sessions')
         .select('status, current_puzzle_index, started_at, completed_at')
@@ -241,11 +239,19 @@ export default function GameSession({ session: initialSession }: GameSessionProp
           >
         >()
 
-      if (error) return
+      if (error || !data) return
 
-      if (data) {
-        setSession((prev) => ({ ...prev, ...data }))
-      }
+      setSession((prev) => {
+        const changed =
+          data.status !== prev.status ||
+          data.current_puzzle_index !== prev.current_puzzle_index ||
+          data.started_at !== prev.started_at ||
+          data.completed_at !== prev.completed_at
+
+        if (!changed) return prev
+
+        return { ...prev, ...data }
+      })
     }, 2000)
 
     return () => {
