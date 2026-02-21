@@ -100,19 +100,21 @@ export default function GameQueue({ roomId, onUpdate }: GameQueueProps) {
 
     const supabase = createClient()
 
-    // Swap positions
+    // Swap positions using temp value to avoid unique constraint violation
     const current = queuedGames[currentIndex]
     const other = queuedGames[newIndex]
 
-    await (supabase
-      .from('room_game_queue') as any)
-      .update({ queue_position: newIndex })
+    await (supabase.from('room_game_queue') as any)
+      .update({ queue_position: -1 })
       .eq('id', current.id)
 
-    await (supabase
-      .from('room_game_queue') as any)
+    await (supabase.from('room_game_queue') as any)
       .update({ queue_position: currentIndex })
       .eq('id', other.id)
+
+    await (supabase.from('room_game_queue') as any)
+      .update({ queue_position: newIndex })
+      .eq('id', current.id)
 
     loadData()
     onUpdate?.()
@@ -130,10 +132,16 @@ export default function GameQueue({ roomId, onUpdate }: GameQueueProps) {
 
     if (!queue) return
 
-    // Update positions sequentially
+    // Clear all positions first to avoid unique constraint violations
     for (let i = 0; i < queue.length; i++) {
-      await (supabase
-        .from('room_game_queue') as any)
+      await (supabase.from('room_game_queue') as any)
+        .update({ queue_position: -(i + 1) })
+        .eq('id', (queue[i] as any).id)
+    }
+
+    // Set final positions
+    for (let i = 0; i < queue.length; i++) {
+      await (supabase.from('room_game_queue') as any)
         .update({ queue_position: i })
         .eq('id', (queue[i] as any).id)
     }
@@ -178,11 +186,15 @@ export default function GameQueue({ roomId, onUpdate }: GameQueueProps) {
     setDraggedItemId(null)
     setDragOverIndex(null)
 
-    // Update database
+    // Update database - clear positions first to avoid unique constraint violations
     const supabase = createClient()
     for (let i = 0; i < newQueue.length; i++) {
-      await (supabase
-        .from('room_game_queue') as any)
+      await (supabase.from('room_game_queue') as any)
+        .update({ queue_position: -(i + 1) })
+        .eq('id', newQueue[i].id)
+    }
+    for (let i = 0; i < newQueue.length; i++) {
+      await (supabase.from('room_game_queue') as any)
         .update({ queue_position: i })
         .eq('id', newQueue[i].id)
     }
