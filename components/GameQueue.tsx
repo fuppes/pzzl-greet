@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Game, RoomGameQueueWithGame } from '@/types/games'
+import type { Game, GameType, RoomGameQueueWithGame } from '@/types/games'
 import { GAME_TYPES } from '@/types/games'
+
+const DEFAULT_GAME_META = { icon: '🎮', name: 'Unbekannt' } as const
 
 interface GameQueueProps {
   roomId: string
@@ -211,7 +213,7 @@ export default function GameQueue({ roomId, onUpdate }: GameQueueProps) {
           <div className="space-y-2">
             {queuedGames.map((queueItem, index) => {
               const game = queueItem.games as unknown as Game
-              const gameType = GAME_TYPES[game.game_type]
+              const gameType = GAME_TYPES[game.game_type as GameType] || DEFAULT_GAME_META
               const isDragging = draggedItemId === queueItem.id
               const isDragOver = dragOverIndex === index
 
@@ -291,7 +293,7 @@ export default function GameQueue({ roomId, onUpdate }: GameQueueProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {availableGames.map((game) => {
-              const gameType = GAME_TYPES[game.game_type]
+              const gameType = GAME_TYPES[game.game_type as GameType] || DEFAULT_GAME_META
               const isInQueue = queuedGames.some((q) => q.game_id === game.id)
 
               return (
