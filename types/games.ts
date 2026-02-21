@@ -1,4 +1,4 @@
-export type GameType = 'quiz' | 'memory' | 'word' | 'chat_typing' | 'countdown_rhythm'
+export type GameType = 'quiz' | 'memory' | 'word' | 'chat_typing' | 'countdown_rhythm' | 'emoji_catcher'
 
 // Quiz Game Config
 export interface QuizQuestion {
@@ -47,8 +47,16 @@ export interface CountdownRhythmConfig {
   visibleBeats: number // How many beats to show before hiding (e.g., 5)
 }
 
+// Emoji Catcher Game Config
+export interface EmojiCatcherConfig {
+  theme: 'animals' | 'food' | 'sports' | 'party' | 'nature'
+  duration: number       // Game duration in seconds (30-120)
+  spawnRate: number      // Emojis per second (1-5)
+  fallSpeed: number      // Fall speed level (1-5, slow to fast)
+}
+
 // Generic Game Config
-export type GameConfig = QuizConfig | MemoryConfig | WordConfig | ChatTypingConfig | CountdownRhythmConfig
+export type GameConfig = QuizConfig | MemoryConfig | WordConfig | ChatTypingConfig | CountdownRhythmConfig | EmojiCatcherConfig
 
 // Game Database Type
 export interface Game {
@@ -145,5 +153,17 @@ export const GAME_TYPES = {
       beatInterval: 1000,
       visibleBeats: 5,
     } as CountdownRhythmConfig,
+  },
+  emoji_catcher: {
+    id: 'emoji_catcher' as const,
+    name: 'Emoji Catcher',
+    icon: '🧺',
+    description: 'Fange die richtigen Emojis mit deinem Korb!',
+    defaultConfig: {
+      theme: 'party',
+      duration: 45,
+      spawnRate: 2,
+      fallSpeed: 3,
+    } as EmojiCatcherConfig,
   },
 } as const
