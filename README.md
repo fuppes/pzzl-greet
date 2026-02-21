@@ -5,18 +5,27 @@ Eine moderne Next.js-Anwendung für personalisierte Feiertagsgrüße mit integri
 ## ✨ Features
 
 ### 🎮 Spielsystem
-- **4 verschiedene Spieltypen**: Quiz, Memory, Wortsuche & Chat Typing Race
+- **6 verschiedene Spieltypen**: Quiz, Memory, Wortsuche, Chat Typing Race, Countdown Rhythm & Emoji Catcher
 - **Multiplayer-Unterstützung**: Mehrere Spieler können gleichzeitig spielen
 - **Drag & Drop Game Queue**: Flexible Anordnung der Spiele im Admin-Panel
 - **Echtzeit-Synchronisation**: Alle Spieler sehen den gleichen Spielstand
 - **Leaderboard**: Live-Punktestand während und nach jedem Spiel
 
-### 💬 Chat Typing Race (NEU!)
+### 💬 Chat Typing Race
 - **WhatsApp-Style Chat**: Beantworte Nachrichten von Freunden & Familie
 - **Konfigurierbare Zeit**: 10-300 Sekunden Spielzeit einstellbar
 - **20 lustige Charaktere**: Oma, Ex-Freundin, Vermieter, Fitnesstrainer uvm.
 - **Penalty-System**: Falsche Antworten = -3 Sekunden + böse Reaktion
 - **Ghost-Text**: Transparenter Hinweis-Text im Eingabefeld
+
+### ⏱ Countdown Rhythm
+- **Timing-Spiel**: Stoppe den Countdown im richtigen Moment
+- **Rhythmus-basiert**: Punkte basierend auf Genauigkeit
+
+### 🎯 Emoji Catcher
+- **Fang-Spiel**: Bewege den Korb und fange fallende Emojis
+- **5 Themen-Kategorien**: Verschiedene Emoji-Sets zum Spielen
+- **Touch-Steuerung**: Optimiert für mobile Geräte
 
 ### 📬 Feedback & Messaging System
 - **Emoji-Auswahl**: 12 verschiedene Emojis zur Auswahl
@@ -111,6 +120,15 @@ App läuft auf [http://localhost:3000](http://localhost:3000)
 - Konfigurierbare Spielzeit (10-300 Sekunden)
 - Ghost-Text Hilfe im Eingabefeld
 
+### 5. Countdown Rhythm
+- Stoppe den Countdown im richtigen Moment
+- Punkte basierend auf Timing-Genauigkeit
+
+### 6. Emoji Catcher
+- Fange fallende Emojis mit einem Korb
+- 5 verschiedene Themen-Kategorien
+- Touch-optimiert für mobile Geräte
+
 ## 🏗 Architektur
 
 ```
@@ -125,7 +143,9 @@ grtngs.dana/
 │   │   ├── QuizWithLeaderboard.tsx
 │   │   ├── MemoryWithLeaderboard.tsx
 │   │   ├── WordWithLeaderboard.tsx
-│   │   └── ChatTypingRaceWithLeaderboard.tsx  # NEU
+│   │   ├── ChatTypingRaceWithLeaderboard.tsx
+│   │   ├── CountdownRhythmPuzzle.tsx
+│   │   └── EmojiCatcherWithLeaderboard.tsx
 │   ├── GameEditor.tsx      # Modularer Game-Editor
 │   ├── GreetingPage.tsx    # Abschluss-Seite mit Feedback
 │   └── Inbox.tsx           # Nachrichten-Inbox
