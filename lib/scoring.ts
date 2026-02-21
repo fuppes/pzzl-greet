@@ -7,6 +7,7 @@ const SCORING_ACTION_TYPES = [
   'word_answer',
   'chat_typing_finished',
   'countdown_rhythm_stop',
+  'emoji_catcher_finished',
 ] as const
 
 export interface PlayerScoreData {
