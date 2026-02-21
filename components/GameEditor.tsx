@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, CountdownRhythmConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
+import type { Game, GameType, QuizConfig, MemoryConfig, WordConfig, ChatTypingConfig, CountdownRhythmConfig, EmojiCatcherConfig, QuizQuestion, MemoryPair, WordPuzzle } from '@/types/games'
 import { GAME_TYPES } from '@/types/games'
 import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
@@ -146,6 +146,9 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
           )}
           {gameType === 'countdown_rhythm' && (
             <CountdownRhythmConfigEditor config={config as CountdownRhythmConfig} onChange={setConfig} />
+          )}
+          {gameType === 'emoji_catcher' && (
+            <EmojiCatcherConfigEditor config={config as EmojiCatcherConfig} onChange={setConfig} />
           )}
         </div>
 
@@ -758,6 +761,100 @@ function CountdownRhythmConfigEditor({
 
       <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
         💡 Die Spieler müssen den Rhythmus merken und im Kopf weiterzählen. Je näher sie der Zielzahl kommen, desto mehr Punkte gibt es! Perfekte Treffer = 100 Punkte, -10 Punkte pro Zahl Abweichung.
+      </div>
+    </div>
+  )
+}
+
+// Emoji Catcher Config Editor
+function EmojiCatcherConfigEditor({
+  config,
+  onChange,
+}: {
+  config: EmojiCatcherConfig
+  onChange: (config: EmojiCatcherConfig) => void
+}) {
+  const themes = [
+    { id: 'animals', name: 'Tiere', icon: '🐶' },
+    { id: 'food', name: 'Essen', icon: '🍕' },
+    { id: 'sports', name: 'Sport', icon: '⚽' },
+    { id: 'party', name: 'Party', icon: '🎉' },
+    { id: 'nature', name: 'Natur', icon: '🌸' },
+  ] as const
+
+  return (
+    <div className="space-y-4">
+      <h4 className="text-lg font-semibold text-white">Emoji Catcher Einstellungen</h4>
+
+      {/* Theme Selection */}
+      <div>
+        <label className="block text-sm text-gray-300 mb-2">Thema</label>
+        <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+          {themes.map((theme) => (
+            <button
+              key={theme.id}
+              type="button"
+              onClick={() => onChange({ ...config, theme: theme.id })}
+              className={`p-3 rounded-lg border-2 transition-all ${
+                config.theme === theme.id
+                  ? 'border-blue-500 bg-blue-500/20'
+                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}
+            >
+              <div className="text-2xl mb-1">{theme.icon}</div>
+              <div className="text-xs text-gray-400">{theme.name}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Duration */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">Spieldauer (Sekunden)</label>
+          <input
+            type="number"
+            value={config.duration}
+            onChange={(e) => onChange({ ...config, duration: parseInt(e.target.value) || 45 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={15}
+            max={120}
+          />
+          <p className="text-xs text-gray-400 mt-1">15-120 Sekunden</p>
+        </div>
+
+        {/* Spawn Rate */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">Emojis pro Sekunde</label>
+          <input
+            type="number"
+            value={config.spawnRate}
+            onChange={(e) => onChange({ ...config, spawnRate: parseFloat(e.target.value) || 2 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={0.5}
+            max={5}
+            step={0.5}
+          />
+          <p className="text-xs text-gray-400 mt-1">0.5-5 pro Sekunde</p>
+        </div>
+
+        {/* Fall Speed */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">Fallgeschwindigkeit</label>
+          <input
+            type="number"
+            value={config.fallSpeed}
+            onChange={(e) => onChange({ ...config, fallSpeed: parseInt(e.target.value) || 3 })}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            min={1}
+            max={5}
+          />
+          <p className="text-xs text-gray-400 mt-1">1 (langsam) bis 5 (schnell)</p>
+        </div>
+      </div>
+
+      <div className="text-xs text-gray-400 bg-blue-500/10 border border-blue-500/20 rounded p-3">
+        💡 Die Spieler müssen die richtigen Emojis mit ihrem Korb fangen. Richtige Emojis geben +10 Punkte, falsche -5.
       </div>
     </div>
   )
