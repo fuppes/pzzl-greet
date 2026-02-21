@@ -10,7 +10,8 @@ import VideoUpload from '@/components/VideoUpload'
 import GameEditor from '@/components/GameEditor'
 import GameQueue from '@/components/GameQueue'
 import Inbox from '@/components/Inbox'
-import type { Game } from '@/types/games'
+import type { Game, GameType } from '@/types/games'
+import { GAME_TYPES } from '@/types/games'
 import { getUserFriendlyMessage, logError } from '@/lib/error-handler'
 
 type Room = Database['public']['Tables']['rooms']['Row']
@@ -409,11 +410,9 @@ export default function AdminDashboard({ rooms: initialRooms, user }: AdminDashb
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {games.map((game) => {
-                    const gameType = game.game_type
-                    const icon =
-                      gameType === 'quiz' ? '❓' : gameType === 'memory' ? '🎴' : '🔤'
-                    const typeName =
-                      gameType === 'quiz' ? 'Quiz' : gameType === 'memory' ? 'Memory' : 'Wörter-Rätsel'
+                    const gameTypeMeta = GAME_TYPES[game.game_type as GameType]
+                    const icon = gameTypeMeta?.icon || '🎮'
+                    const typeName = gameTypeMeta?.name || game.game_type
 
                     return (
                       <div
